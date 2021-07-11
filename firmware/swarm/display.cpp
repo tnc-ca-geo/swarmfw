@@ -22,8 +22,18 @@ void SwarmDisplay::println(String line) {
   thisDisplay.println(line);
 }
 
+// keep this for later, go with simpler display for now
+void SwarmDisplay::render() {
+  thisDisplay.clearDisplay();
+  thisDisplay.setCursor(0, 0);
+  for (int i=0; i<20; i++) { 
+    thisDisplay.print(displayBuffer[lineNumber][i]);
+  }
+  thisDisplay.display();
+}
+
 void SwarmDisplay::printBuffer(char *bfr, size_t len) {
-  if (thisDisplay.getCursorY() > 50) {
+  if (thisDisplay.getCursorY() > 60) {
       thisDisplay.clearDisplay();
       thisDisplay.setCursor(0, 0);
   }

@@ -27,13 +27,16 @@ void SwarmNode::setDisplay(SwarmDisplay *streamObject) {
 
 // waiting for the initialization message
 boolean SwarmNode::deviceReady() {
+  // we restarting the tile on MC boot to get into a defined state
   char command[] = "$RS*01\n";
   int len = sizeof(command);
   char bfr[256];
   tileCommand(command, 7, bfr);
   while (true) {
     size_t len = getLine(bfr);
-    _displayRef->printBuffer(bfr, len);
+    // print only lines longer than 3 characters since node
+    // seem to return empty line breaks
+    if (len > 10) _displayRef->printBuffer(bfr, len);
   }
 }
 
@@ -44,11 +47,15 @@ boolean SwarmNode::deviceReady() {
  */
 int SwarmNode::getLine(char *bfr) {
   int idx = -1;
-  char character;
+  uint8_t character;
   if (Serial2.available()) {
     do {
       character = Serial2.read();
-      if (character != -1) {
+      // if no character is in the Serial cash it will return 255
+      // this is currently blocking until a newline character appears on
+      // the Serial
+      // TODO: implement in a non-blocking loop structure
+      if (character != 255) {
         idx ++;
         bfr[idx] = character;
       }
@@ -73,10 +80,14 @@ uint8_t SwarmNode::nmeaChecksum(const char *sz, size_t len) {
   return cs;
 }
 
+/*
+ * Send a command to the tile 
+ * TODO: implement NMEA checksum
+ */
 int SwarmNode::tileCommand(char *command, size_t len, char *bfr) {
-  for (int i; i<len+1; i++) _displayRef->print(command[i]);
+  _displayRef->printBuffer(command, len);
   int res = Serial2.write(command, len);
-  _displayRef->display();
+  // implement response
   return 0;
 }
   

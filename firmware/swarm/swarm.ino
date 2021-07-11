@@ -59,14 +59,14 @@ SwarmNode tile = SwarmNode();
 void setup() {
   Serial.begin(9600);
   delay(500);
-  Serial.println("\nDebugging");
+  // Serial.println("\nDebugging");
   // Initialize display
   // display.begin(0x3C, true);
   // pass display to node object
   display.begin();
   // add some boiler plate here
   // TODO: move to class handling communication
-  display.println("SWARM sensor node\n");
+  // display.println("SWARM sensor node\n");
   // display.println("falk.schuetzenmeister@tnc.org\n");
   // display.println("July 2021\n");
   display.display();

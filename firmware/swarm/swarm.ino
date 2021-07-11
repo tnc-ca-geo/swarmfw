@@ -1,9 +1,23 @@
+/*
+ * Firmware for SWARM evaluation kit with Adafruit ESP32 Huzzah Feather and
+ * SDI-12 sensor (eventually)
+ * 
+ * TODOs:
+ * - investigate testing
+ * - investigate use of modules accross projects
+ * 
+ * Current goals: 
+ * - proof of concept and regular sending of messages
+ * 
+ * Falk Schuetzenmeister, falk.schuetzenmeister@tnc.org
+ * July 2021
+ */
 #include <Wire.h>
+// libraries driving the OLED display
 #include <Adafruit_GFX.h>
-// this library is driving the OLED display
 #include <Adafruit_SH110X.h>
 
-// include our classes here
+// include my own classes here
 #include "swarmNode.h" 
 
 Adafruit_SH1107 display = Adafruit_SH1107(64, 128, &Wire);
@@ -11,6 +25,7 @@ SwarmNode tile = SwarmNode();
 
 // from library example
 // OLED FeatherWing buttons map to different pins depending on board:
+// TODO: remove boards we are not likely to use
 #if defined(ESP8266)
   #define BUTTON_A  0
   #define BUTTON_B 16
@@ -19,6 +34,7 @@ SwarmNode tile = SwarmNode();
   #define BUTTON_A 15
   #define BUTTON_B 32
   #define BUTTON_C 14
+// SWARM is using this one
 #elif defined(ARDUINO_STM32_FEATHER)
   #define BUTTON_A PA15
   #define BUTTON_B PC7
@@ -39,6 +55,9 @@ SwarmNode tile = SwarmNode();
 
 
 void setup() {
+  Serial.begin(9600);
+  delay(500);
+  Serial.println("\nDebugging");
   // Initialize display
   display.begin(0x3C, true);
   display.setRotation(1);
@@ -49,17 +68,13 @@ void setup() {
   display.setCursor(0, 0);
   // add some boiler plate here
   // TODO: move to class handling communication
-  display.println("SWARM sensor node");
-  display.println("");
-  // display.println("falk.schuetzenmeister@tnc.org");
-  // display.println("");
-  // display.println("July 2021");
-  // display.display();
-  // display.println("ready");
-  // display.display();
+  display.println("SWARM sensor node\n");
+  // display.println("falk.schuetzenmeister@tnc.org\n");
+  // display.println("July 2021\n");
+  display.display();
   // pass display to SwarmNode class for debug messages
   tile.setDisplay(&display);
-  // start initialization of the swarm tile
+  // begin initialization of swarm tile
   tile.begin();
 }
 

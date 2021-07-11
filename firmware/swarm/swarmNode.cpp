@@ -21,7 +21,7 @@ void SwarmNode::begin() {
   deviceReady(); 
 };
 
-void SwarmNode::setDisplay(Adafruit_SH1107 *streamObject) {
+void SwarmNode::setDisplay(SwarmDisplay *streamObject) {
   _streamRef=streamObject;
 }
 
@@ -40,10 +40,6 @@ boolean SwarmNode::deviceReady() {
     for (int i=0; i<len; i++) {
       _streamRef->print(bfr[i]);
     }
-    //if (Serial2.available()) {
-    //  char character = Serial2.read();
-    //  _streamRef->print(character);
-    //}
     _streamRef->display();
   }
 }

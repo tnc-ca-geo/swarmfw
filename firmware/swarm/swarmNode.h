@@ -1,11 +1,13 @@
+#ifndef display.h
+#include "display.h"
+#endif
 #include <Arduino.h>
-#include <Adafruit_SH110X.h>
 
 
 class SwarmNode {
 
   private: 
-    Adafruit_SH1107 *_streamRef;
+    SwarmDisplay *_streamRef;
   public:
     SwarmNode();
     
@@ -30,5 +32,5 @@ class SwarmNode {
 
     // this is a little bit overspecific
     // TODO: abstract and make work with Serial as well
-    void setDisplay(Adafruit_SH1107 *streamObject);
+    void setDisplay(SwarmDisplay *streamObject);
 };

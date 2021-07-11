@@ -12,15 +12,17 @@
  * Falk Schuetzenmeister, falk.schuetzenmeister@tnc.org
  * July 2021
  */
-#include <Wire.h>
+#include <Wire.h> 
 // libraries driving the OLED display
 #include <Adafruit_GFX.h>
 #include <Adafruit_SH110X.h>
 
 // include my own classes here
+// #include "display.h"
 #include "swarmNode.h" 
 
-Adafruit_SH1107 display = Adafruit_SH1107(64, 128, &Wire);
+// Adafruit_SH1107 display = Adafruit_SH1107(64, 128, &Wire);
+SwarmDisplay display = SwarmDisplay();
 SwarmNode tile = SwarmNode();
 
 // from library example
@@ -59,13 +61,9 @@ void setup() {
   delay(500);
   Serial.println("\nDebugging");
   // Initialize display
-  display.begin(0x3C, true);
-  display.setRotation(1);
-  display.setTextSize(1);
-  display.setTextColor(SH110X_WHITE);
-  display.clearDisplay();
+  // display.begin(0x3C, true);
   // pass display to node object
-  display.setCursor(0, 0);
+  display.begin();
   // add some boiler plate here
   // TODO: move to class handling communication
   display.println("SWARM sensor node\n");

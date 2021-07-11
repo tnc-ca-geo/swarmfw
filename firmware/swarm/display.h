@@ -13,11 +13,14 @@ class SwarmDisplay {
 
   private:
     Adafruit_SH1107 thisDisplay = Adafruit_SH1107(64, 128, &Wire);
+    char displayBuffer[20][7];
+    int lineNumber;
   public:
     SwarmDisplay(); 
     void begin();
     void print(char character);
     void println(String line);
+    void printBuffer(char *bfr, size_t len);
     void clearDisplay();
     void display();
     void setCursor(int x, int y);

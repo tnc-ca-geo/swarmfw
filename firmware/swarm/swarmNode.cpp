@@ -22,7 +22,7 @@ void SwarmNode::begin() {
 };
 
 void SwarmNode::setDisplay(SwarmDisplay *streamObject) {
-  _streamRef=streamObject;
+  _displayRef=streamObject;
 }
 
 // waiting for the initialization message
@@ -32,15 +32,8 @@ boolean SwarmNode::deviceReady() {
   char bfr[256];
   tileCommand(command, 7, bfr);
   while (true) {
-    if (_streamRef->getCursorY() > 50) {
-      _streamRef->clearDisplay();
-      _streamRef->setCursor(0, 0);
-    }
     size_t len = getLine(bfr);
-    for (int i=0; i<len; i++) {
-      _streamRef->print(bfr[i]);
-    }
-    _streamRef->display();
+    _displayRef->printBuffer(bfr, len);
   }
 }
 
@@ -61,7 +54,7 @@ int SwarmNode::getLine(char *bfr) {
       }
     } while (bfr[idx] != 10 and idx < 255);
   }
-  return idx + 1;
+  return idx+1;
 }
 
 // just a placeholder for now
@@ -81,9 +74,9 @@ uint8_t SwarmNode::nmeaChecksum(const char *sz, size_t len) {
 }
 
 int SwarmNode::tileCommand(char *command, size_t len, char *bfr) {
-  for (int i; i<len+1; i++) _streamRef->print(command[i]);
+  for (int i; i<len+1; i++) _displayRef->print(command[i]);
   int res = Serial2.write(command, len);
-  _streamRef->display();
+  _displayRef->display();
   return 0;
 }
   

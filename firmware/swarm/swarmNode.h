@@ -7,7 +7,7 @@
 class SwarmNode {
 
   private: 
-    SwarmDisplay *_streamRef;
+    SwarmDisplay *_displayRef;
   public:
     SwarmNode();
     

@@ -43,6 +43,19 @@ void SwarmDisplay::printBuffer(char *bfr, size_t len) {
   thisDisplay.display();
 }
 
+void SwarmDisplay::printBuffer(String string) {
+  char bffr[256];
+  int len = string.length();
+  if (len > 255) {
+    string = string.substring(0, 255);
+    len = 255;
+  }
+  // not sure why we need len+1 here but last letter
+  // get truncated otherwise
+  string.toCharArray(bffr, len+1);
+  printBuffer(bffr, len);
+}
+
 void SwarmDisplay::clearDisplay() {
   thisDisplay.clearDisplay();
 }

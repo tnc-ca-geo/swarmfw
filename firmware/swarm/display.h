@@ -20,14 +20,15 @@ class SwarmDisplay {
   public:
     SwarmDisplay(); 
     void begin();
-    void print(char character);
-    void println(String line);
-    void printBuffer(char *bfr, size_t len);
     void clearDisplay();
     void display();
+    int getCursorY();
+    void print(char character);
+    void printBuffer(char *bfr, size_t len);
+    void printBuffer(String string);
+    void println(String line);
     // use render to implement scrolling display later
     // UNUSED for now
     void render();
     void setCursor(int x, int y);
-    int getCursorY();
 };

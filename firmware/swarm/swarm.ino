@@ -8,6 +8,9 @@
  * 
  * Current goals: 
  * - proof of concept and regular sending of messages
+ * - simple as possible
+ * - do not wrangle control from the SWARM tile
+ * - we can use simple synchronous loop for now
  * 
  * Falk Schuetzenmeister, falk.schuetzenmeister@tnc.org
  * July 2021
@@ -24,6 +27,7 @@
 // Adafruit_SH1107 display = Adafruit_SH1107(64, 128, &Wire);
 SwarmDisplay display = SwarmDisplay();
 SwarmNode tile = SwarmNode();
+int16_t ctr = 0;
 
 // from library example
 // OLED FeatherWing buttons map to different pins depending on board:
@@ -57,25 +61,37 @@ SwarmNode tile = SwarmNode();
 
 
 void setup() {
+  // for debugging
   Serial.begin(9600);
   delay(500);
-  // Serial.println("\nDebugging");
   // Initialize display
-  // display.begin(0x3C, true);
-  // pass display to node object
   display.begin();
   // add some boiler plate here
-  // TODO: move to class handling communication
-  // display.println("SWARM sensor node\n");
-  // display.println("falk.schuetzenmeister@tnc.org\n");
-  // display.println("July 2021\n");
-  display.display();
+  display.printBuffer("SWARM sensor node\n");
+  display.printBuffer("falk.schuetzenmeister@tnc.org\n");
+  display.printBuffer("July 2021\n");
+  delay(1000);
   // pass display to SwarmNode class for debug messages
   tile.setDisplay(&display);
-  // begin initialization of swarm tile
+  // initialize tile
   tile.begin();
+  display.printBuffer("\nTILE INIT SUCCESSFUL\n");
 }
 
 void loop() {
+  char res[256];
+  char numberBffr[4];
+  char commandBffr[255];
+  int len = tile.tileCommand("$DT @", 5, res);
+  display.printBuffer(res, len);
+  delay(500);
+  sprintf(numberBffr, "%04u", ctr);
+  memcpy(commandBffr, "$TD HD=7200,", 12);
+  for (int i=0; i<4; i++) commandBffr[12+i] = numberBffr[i];
+  len = tile.tileCommand(commandBffr, 16, res); 
+  display.printBuffer(res, len);
+  ctr++;
+  // send every 30 minutes
+  delay(1800000);
   // put your main code here, to run repeatedly:
 }

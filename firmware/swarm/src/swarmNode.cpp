@@ -6,7 +6,9 @@
 /* 
  *  Constructor
  */
-SwarmNode::SwarmNode() {};
+SwarmNode::SwarmNode() {
+  messageCounter = 0;  
+};
 
 /*  
  *   Initialize the SWARM tile
@@ -16,11 +18,12 @@ SwarmNode::SwarmNode() {};
  *   will restart if already running.
  */
 void SwarmNode::begin() {
-  Serial2.begin(115200);
   char bfr[256];
+  size_t len=0;
+  Serial2.begin(115200);
   tileCommand("$RS", 3, bfr);
   while (true) {
-    size_t len = getLine(bfr);
+    len = getLine(bfr);
     if (len) {
       _displayRef->printBuffer(bfr, len);
       // TODO: this works only on actual start up. Find another way
@@ -28,13 +31,16 @@ void SwarmNode::begin() {
       if (parseLine(bfr, len, "$TILE BOOT,RUNNING*49", 21)) break;
     }
   }
-  int timeLen = 0;
+  // FOR DEV delete all unsent messages to not use up our 
+  // 720 included messages with too many junk messages
+  len = tileCommand("$MT D=U", 7, bfr);
+  _displayRef->printBuffer(bfr, len); 
   do {
     delay(3000);
-    timeLen = getTime(bfr);
+    len = getTime(bfr);
     // Serial.println(timeLen);
-    _displayRef->printBuffer(bfr, timeLen);
-  } while (!parseLine(bfr, timeLen, "$DT 20", 5));
+    _displayRef->printBuffer(bfr, len);
+  } while (!parseLine(bfr, len, "$DT 20", 5));
 };
 
 /* 
@@ -96,9 +102,6 @@ uint8_t SwarmNode::nmeaChecksum(const char *sz, size_t len) {
   return cs;
 }
 
-/*
-  sprintf(bffr, "%x", number);
-*/
 
 boolean SwarmNode::parseLine(
   const char *bffr, const int len, 
@@ -116,6 +119,39 @@ boolean SwarmNode::parseLine(
     if (ret) break;
   } 
   return ret;
+}
+
+/*
+ * Format a text message, add metadata, and send to tile
+ */
+void SwarmNode::sendMessage(char *bfr, size_t len) {
+  // buffer for feedback output
+  char res[256];
+  // buffer for index
+  char numberBffr[6];
+  // buffer to assemble the command
+  char commandBffr[255];
+  // index for commandBffr
+  unsigned int commandIdx = 0;
+  sprintf(numberBffr, "%06u", messageCounter);
+  char part1[] = "$TD HD=86400,\"{\"idx\":";
+  commandIdx = sizeof(part1) - 1;
+  memcpy(commandBffr, part1, commandIdx);
+  memcpy(commandBffr + commandIdx, numberBffr, sizeof(numberBffr));
+  commandIdx += sizeof(numberBffr);
+  char part2[] = ",\"payload\":\"";
+  memcpy(commandBffr + commandIdx, part2, sizeof(part2));
+  commandIdx += sizeof(part2) - 1;
+  for (int i=0; i<len; i++) { 
+    commandBffr[commandIdx] = bfr[i];
+    commandIdx++;
+  }
+  char part3[] = "\"}\"";
+  memcpy(commandBffr + commandIdx, part3, sizeof(part3));
+  commandIdx += sizeof(part3) - 1;
+  len = tileCommand(commandBffr, commandIdx, res); 
+  _displayRef->printBuffer(res, len);
+  messageCounter++;
 }
 
 void SwarmNode::setDisplay(SwarmDisplay *displayObject) {

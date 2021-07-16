@@ -21,13 +21,18 @@
 #include <Adafruit_SH110X.h>
 
 // include my own classes here
-// #include "display.h"
+// #include "src/display.h"
 #include "swarmNode.h" 
 
 // Adafruit_SH1107 display = Adafruit_SH1107(64, 128, &Wire);
 SwarmDisplay display = SwarmDisplay();
 SwarmNode tile = SwarmNode();
 int16_t ctr = 0;
+// Sending every hour meets the monthly included rate if the month 
+// has 30 days, pay 60 cents extra for month with 31 days
+const unsigned int sendFrequencyInSeconds = 3600;
+// keep track of time
+unsigned long previousMillis=0;
 
 // from library example
 // OLED FeatherWing buttons map to different pins depending on board:
@@ -61,7 +66,8 @@ int16_t ctr = 0;
 
 
 void setup() {
-  // for debugging
+  // for debugging, wait until board is fully running
+  delay(1000);
   Serial.begin(9600);
   delay(500);
   // Initialize display
@@ -76,22 +82,17 @@ void setup() {
   // initialize tile
   tile.begin();
   display.printBuffer("\nTILE INIT SUCCESSFUL\n");
+  // make sure we start immediately
+  previousMillis = millis() - sendFrequencyInSeconds * 1000;
 }
 
 void loop() {
-  char res[256];
-  char numberBffr[4];
-  char commandBffr[255];
-  int len = tile.tileCommand("$DT @", 5, res);
-  display.printBuffer(res, len);
-  delay(500);
-  sprintf(numberBffr, "%04u", ctr);
-  memcpy(commandBffr, "$TD HD=7200,", 12);
-  for (int i=0; i<4; i++) commandBffr[12+i] = numberBffr[i];
-  len = tile.tileCommand(commandBffr, 16, res); 
-  display.printBuffer(res, len);
-  ctr++;
-  // send every 30 minutes
-  delay(1800000);
-  // put your main code here, to run repeatedly:
+  unsigned long currentMillis = millis();
+  char commandBffr[] = "test";
+  // we tend to the SWARM device every 1s
+  Serial.println(currentMillis - previousMillis);
+  if (currentMillis - previousMillis >= sendFrequencyInSeconds * 1000) {
+    previousMillis = currentMillis;
+    tile.sendMessage(commandBffr, 4);
+  }
 }

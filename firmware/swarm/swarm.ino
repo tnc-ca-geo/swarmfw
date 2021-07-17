@@ -22,7 +22,7 @@
 
 // include my own classes here
 // #include "src/display.h"
-#include "swarmNode.h" 
+#include "src/swarmNode.h" 
 
 // Adafruit_SH1107 display = Adafruit_SH1107(64, 128, &Wire);
 SwarmDisplay display = SwarmDisplay();
@@ -90,7 +90,7 @@ void loop() {
   unsigned long currentMillis = millis();
   char commandBffr[] = "test";
   // we tend to the SWARM device every 1s
-  Serial.println(currentMillis - previousMillis);
+  // Serial.println(currentMillis - previousMillis);
   if (currentMillis - previousMillis >= sendFrequencyInSeconds * 1000) {
     previousMillis = currentMillis;
     tile.sendMessage(commandBffr, 4);

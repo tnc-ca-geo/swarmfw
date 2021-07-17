@@ -3,19 +3,21 @@
 // this library is driving the OLED display
 #include <Adafruit_SH110X.h>
 
-/* 
+/*
  *  Constructor
  */
 SwarmNode::SwarmNode() {
-  messageCounter = 0;  
+  messageCounter = 0;
 };
 
-/*  
+/*
  *   Initialize the SWARM tile
- * 
- *   Issue a reset to the SWARM tile immediately. The tile will not 
- *   be ready to receive the command if starting up anyways. However it 
+ *
+ *   Issue a reset to the SWARM tile immediately. The tile will not
+ *   be ready to receive the command if starting up anyways. However it
  *   will restart if already running.
+ *
+ *   NOT INCLUDED IN TESTING
  */
 void SwarmNode::begin() {
   char bfr[256];
@@ -31,10 +33,10 @@ void SwarmNode::begin() {
       if (parseLine(bfr, len, "$TILE BOOT,RUNNING*49", 21)) break;
     }
   }
-  // FOR DEV delete all unsent messages to not use up our 
+  // FOR DEV delete all unsent messages to not use up our
   // 720 included messages with too many junk messages
   len = tileCommand("$MT D=U", 7, bfr);
-  _displayRef->printBuffer(bfr, len); 
+  _displayRef->printBuffer(bfr, len);
   do {
     delay(3000);
     len = getTime(bfr);
@@ -43,28 +45,30 @@ void SwarmNode::begin() {
   } while (!parseLine(bfr, len, "$DT 20", 5));
 };
 
-/* 
+/*
  *  Add NMEA checksum and new line to command
  */
-int SwarmNode::cleanCommand(char *command, int len, char *bffr) {
-  memcpy(bffr, command, len);
-  bffr[len] = '*';
-  char hexBffr[2];
-  sprintf(hexBffr, "%02x", nmeaChecksum(command, len));
-  for (int i=0; i<2; i++) bffr[len+1+i] = hexBffr[i];
-  bffr[len+3] = '\n';
+size_t SwarmNode::cleanCommand(const char *command, size_t len, char *bfr) {
+  memcpy(bfr, command, len);
+  bfr[len] = '*';
+  char hexbfr[2];
+  sprintf(hexbfr, "%02x", nmeaChecksum(command, len));
+  for (int i=0; i<2; i++) bfr[len+1+i] = hexbfr[i];
+  bfr[len+3] = '\n';
+  bfr[len+4] = '\0';
+  return len + 5;
 }
 
-/*  
+/*
  *  get a line from Serial2
- *  
+ *
  *  We are currently using Serial2 in global space
  *  TODO: look into passing an instance instead
- *  
+ *
  *  The current implementation is rather primitive, entirely relaying
  *  on the UART cache
  */
-int SwarmNode::getLine(char *bfr) {
+size_t SwarmNode::getLine(char *bfr) {
   int idx = -1;
   char character;
   if (Serial2.available()) {
@@ -78,22 +82,22 @@ int SwarmNode::getLine(char *bfr) {
         bfr[idx] = character;
       }
     } while (bfr[idx] != 10 and idx < 255);
-  } 
+  }
   return idx+1;
 }
 
-/* 
+/*
  * read and format time
  */
-int SwarmNode::getTime(char *bffr) {
-  return tileCommand("$DT @", 5, bffr);
+int SwarmNode::getTime(char *bfr) {
+  return tileCommand("$DT @", 5, bfr);
 }
 
-/* 
+/*
  *  get nmeaChecksum of a command
  *  see https://swarm.space/wp-content/uploads/2021/06/Swarm-Tile-Product-Manual.pdf
- *  page 34 
- */ 
+ *  page 34
+ */
 uint8_t SwarmNode::nmeaChecksum(const char *sz, size_t len) {
   size_t i = 0;
   uint8_t cs;
@@ -102,54 +106,92 @@ uint8_t SwarmNode::nmeaChecksum(const char *sz, size_t len) {
   return cs;
 }
 
-
+/*
+ * Parse a line and return whether it contains another starting
+ *
+ * TODO: There is probably a native command to do that
+ * TODO: return integer first position for more functionality
+ */
 boolean SwarmNode::parseLine(
-  const char *bffr, const int len, 
-  const char *searchTerm, int searchLen) {
+  const char *line, size_t len, const char *searchTerm, size_t searchLen) {
   boolean ret = false;
   if (searchLen > len) return false;
   for (int i=0; i < len-searchLen; i++) {
     for (int j=0; j < searchLen; j++) {
-      if (searchTerm[j] == bffr[i+j]) ret = true;
+      if (searchTerm[j] == line[i+j]) ret = true;
       else {
         ret = false;
         break;
       }
     }
     if (ret) break;
-  } 
+  }
   return ret;
+}
+
+/*
+ * Parse time return from SWARM tile into epoch time_t
+ *
+ * Returm type could be t_time but that does not play well with the Arduino
+ * test framework
+ */
+int SwarmNode::parseTime(const char *timeResponse, size_t len) {
+  char part[5];
+  struct tm time = {0};
+  // this is a little bit lazy way to determine whether we have the
+  // right message type but it will work for the next 979 years
+  if (parseLine(timeResponse, len, "$DT 2", 4)) {
+    memcpy(part, timeResponse + 4, 4);
+    part[4] = '\0';
+    time.tm_year = strtol(part, NULL, 10) - 1900;
+    memcpy(part, timeResponse + 8, 2);
+    // we have to do that only once since we copy
+    // nly 2 bytes in the following steps
+    part[2] = '\0';
+    // struct works with 0-indexed month
+    time.tm_mon = strtol(part, NULL, 10) - 1;
+    memcpy(part, timeResponse + 10, 2);
+    time.tm_mday = strtol(part, NULL, 10);
+    memcpy(part, timeResponse + 12, 2);
+    time.tm_hour = strtol(part, NULL, 10);
+    memcpy(part, timeResponse + 14, 2);
+    time.tm_min = strtol(part, NULL, 10);
+    memcpy(part, timeResponse + 16, 2);
+    time.tm_sec = strtol(part, NULL, 10);
+    return mktime(&time);
+  }
+  return -1;
 }
 
 /*
  * Format a text message, add metadata, and send to tile
  */
-void SwarmNode::sendMessage(char *bfr, size_t len) {
+void SwarmNode::sendMessage(const char *message, size_t len) {
   // buffer for feedback output
   char res[256];
   // buffer for index
-  char numberBffr[6];
+  char numberBfr[6];
   // buffer to assemble the command
-  char commandBffr[255];
-  // index for commandBffr
+  char commandBfr[255];
+  // index for commandBfr
   unsigned int commandIdx = 0;
-  sprintf(numberBffr, "%06u", messageCounter);
+  sprintf(numberBfr, "%06u", messageCounter);
   char part1[] = "$TD HD=86400,\"{\"idx\":";
   commandIdx = sizeof(part1) - 1;
-  memcpy(commandBffr, part1, commandIdx);
-  memcpy(commandBffr + commandIdx, numberBffr, sizeof(numberBffr));
-  commandIdx += sizeof(numberBffr);
+  memcpy(commandBfr, part1, commandIdx);
+  memcpy(commandBfr + commandIdx, numberBfr, sizeof(numberBfr));
+  commandIdx += sizeof(numberBfr);
   char part2[] = ",\"payload\":\"";
-  memcpy(commandBffr + commandIdx, part2, sizeof(part2));
+  memcpy(commandBfr + commandIdx, part2, sizeof(part2));
   commandIdx += sizeof(part2) - 1;
-  for (int i=0; i<len; i++) { 
-    commandBffr[commandIdx] = bfr[i];
+  for (int i=0; i<len; i++) {
+    commandBfr[commandIdx] = message[i];
     commandIdx++;
   }
   char part3[] = "\"}\"";
-  memcpy(commandBffr + commandIdx, part3, sizeof(part3));
+  memcpy(commandBfr + commandIdx, part3, sizeof(part3));
   commandIdx += sizeof(part3) - 1;
-  len = tileCommand(commandBffr, commandIdx, res); 
+  len = tileCommand(commandBfr, commandIdx, res);
   _displayRef->printBuffer(res, len);
   messageCounter++;
 }
@@ -165,10 +207,10 @@ void SwarmNode::setDisplay(SwarmDisplay *displayObject) {
  * a race condition since an unsolicitated message could arrive in the meanwhile
  * TODO: implement independant serial buffer later
  */
-int SwarmNode::tileCommand(char *command, size_t len, char *bffr) {
+size_t SwarmNode::tileCommand(const char *command, size_t len, char *bfr) {
   char commandBuffer[len+4];
   cleanCommand(command, len, commandBuffer);
   _displayRef->printBuffer(commandBuffer, len+4);
   int res = Serial2.write(commandBuffer, len+4);
-  return getLine(bffr);
+  return getLine(bfr);
 }

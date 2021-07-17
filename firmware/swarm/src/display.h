@@ -1,7 +1,7 @@
-/* 
+/*
  *  Wrapper class around display
- *  
- *  - abstracts display and could be potentially swapped for other 
+ *
+ *  - abstracts display and could be potentially swapped for other
  *    output options such as Serial
  *  - adds functionality
  */

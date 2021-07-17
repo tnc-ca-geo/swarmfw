@@ -26,7 +26,7 @@
 
 // Adafruit_SH1107 display = Adafruit_SH1107(64, 128, &Wire);
 SwarmDisplay display = SwarmDisplay();
-SwarmNode tile = SwarmNode();
+SwarmNode tile = SwarmNode(&display);
 int16_t ctr = 0;
 // Sending every hour meets the monthly included rate if the month 
 // has 30 days, pay 60 cents extra for month with 31 days
@@ -69,16 +69,13 @@ void setup() {
   // for debugging, wait until board is fully running
   delay(1000);
   Serial.begin(9600);
-  delay(500);
   // Initialize display
   display.begin();
   // add some boiler plate here
   display.printBuffer("SWARM sensor node\n");
   display.printBuffer("falk.schuetzenmeister@tnc.org\n");
   display.printBuffer("July 2021\n");
-  delay(1000);
-  // pass display to SwarmNode class for debug messages
-  tile.setDisplay(&display);
+  delay(2000);
   // initialize tile
   tile.begin();
   display.printBuffer("\nTILE INIT SUCCESSFUL\n");
@@ -89,8 +86,6 @@ void setup() {
 void loop() {
   unsigned long currentMillis = millis();
   char commandBffr[] = "test";
-  // we tend to the SWARM device every 1s
-  // Serial.println(currentMillis - previousMillis);
   if (currentMillis - previousMillis >= sendFrequencyInSeconds * 1000) {
     previousMillis = currentMillis;
     tile.sendMessage(commandBffr, 4);

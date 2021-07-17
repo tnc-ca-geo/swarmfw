@@ -23,7 +23,7 @@ class SwarmNode {
     unsigned long messageCounter;
 
   public:
-    SwarmNode();
+    SwarmNode(SwarmDisplay *displayObject);
     void begin();
     static size_t cleanCommand(const char *command, size_t len, char *bfr);
     static size_t getLine(char *bfr);
@@ -35,6 +35,5 @@ class SwarmNode {
       const char *line, size_t len, const char *searchTerm, size_t searchLen);
     static int parseTime(const char *timeResponse, size_t len);
     void sendMessage(const char *message, size_t len);
-    void setDisplay(SwarmDisplay *displayObject);
-    size_t tileCommand(const char *command, size_t len, char *bfr);
+    virtual size_t tileCommand(const char *command, size_t len, char *bfr);
 };

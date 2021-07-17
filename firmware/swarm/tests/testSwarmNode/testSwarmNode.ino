@@ -2,6 +2,8 @@
 #line 2 "testSwarmNode.ino"
 
 #include <AUnitVerbose.h>
+using namespace aunit;
+
 // this is a little bit a problem in Arduino, the import from relative paths that 
 // are not children of the sketch path is not supported.
 // I am HACKING this with a symlink to the src directory for now.
@@ -24,6 +26,7 @@ test(parseLine) {
   char haystack[] = "This is a haystack and we would like to find a needle in here.\n\0";
   assertTrue(testObj.parseLine(haystack, sizeof(haystack), "needle", 5));
   assertFalse(testObj.parseLine(haystack, sizeof(haystack), "gold", 4));
+  assertFalse(testObj.parseLine("short", 5, "to long", 7));
 }
 
 test(parseTime) {

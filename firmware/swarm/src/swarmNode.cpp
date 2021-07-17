@@ -6,7 +6,8 @@
 /*
  *  Constructor
  */
-SwarmNode::SwarmNode() {
+SwarmNode::SwarmNode(SwarmDisplay *displayObject) {
+  _displayRef=displayObject;
   messageCounter = 0;
 };
 
@@ -117,9 +118,9 @@ boolean SwarmNode::parseLine(
   boolean ret = false;
   if (searchLen > len) return false;
   for (int i=0; i < len-searchLen; i++) {
+    ret = true;
     for (int j=0; j < searchLen; j++) {
-      if (searchTerm[j] == line[i+j]) ret = true;
-      else {
+      if (searchTerm[j] != line[i+j]) {
         ret = false;
         break;
       }
@@ -146,7 +147,7 @@ int SwarmNode::parseTime(const char *timeResponse, size_t len) {
     time.tm_year = strtol(part, NULL, 10) - 1900;
     memcpy(part, timeResponse + 8, 2);
     // we have to do that only once since we copy
-    // nly 2 bytes in the following steps
+    // 2 bytes in every of the following steps
     part[2] = '\0';
     // struct works with 0-indexed month
     time.tm_mon = strtol(part, NULL, 10) - 1;
@@ -196,10 +197,6 @@ void SwarmNode::sendMessage(const char *message, size_t len) {
   messageCounter++;
 }
 
-void SwarmNode::setDisplay(SwarmDisplay *displayObject) {
-  _displayRef=displayObject;
-}
-
 /*
  * Send a command to the tile
  * TODO: implement NMEA checksum
@@ -207,7 +204,7 @@ void SwarmNode::setDisplay(SwarmDisplay *displayObject) {
  * a race condition since an unsolicitated message could arrive in the meanwhile
  * TODO: implement independant serial buffer later
  */
-size_t SwarmNode::tileCommand(const char *command, size_t len, char *bfr) {
+  size_t SwarmNode::tileCommand(const char *command, size_t len, char *bfr) {
   char commandBuffer[len+4];
   cleanCommand(command, len, commandBuffer);
   _displayRef->printBuffer(commandBuffer, len+4);

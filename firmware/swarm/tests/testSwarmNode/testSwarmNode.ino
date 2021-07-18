@@ -7,9 +7,13 @@ using namespace aunit;
 // this is a little bit a problem in Arduino, the import from relative paths that 
 // are not children of the sketch path is not supported.
 // I am HACKING this with a symlink to the src directory for now.
-#include "src/swarmNode.h"
 
-SwarmNode testObj = SwarmNode();
+#include "src/swarmNode.h"
+// #include "src/serialWrapper.h"
+
+SwarmDisplay displ = SwarmDisplay();
+MySerial wrapper = MySerial();
+SwarmNode testObj = SwarmNode(&displ, &wrapper);
 
 test(cleanCommand) {
   char bfr[32];
@@ -38,11 +42,23 @@ test(parseTime) {
   assertEqual(testObj.parseTime(validTimeResponse, sizeof(validTimeResponse)), 1554753083);
 }
 
+class MockedSerial: public SerialBase {
+  public:
+    MockedSerial() {}; 
+    void testSerial() {
+      Serial.println("\n\nJust pretending\n");
+    }  
+};
+
+test(testMockSerial) {
+  MockedSerial mockedSerial = MockedSerial();
+  SwarmNode patchedNode = SwarmNode(&displ, &mockedSerial);
+  patchedNode.testSerialWrapper();
+}
 
 // the following sets up the Serial for feedback and starts the test runner
 // no need to touch
 void setup() {
-  delay(1000);
   Serial.begin(9600);
   while(!Serial);
 }

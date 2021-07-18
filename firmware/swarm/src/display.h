@@ -5,6 +5,8 @@
  *    output options such as Serial
  *  - adds functionality
  */
+ // libraries driving the OLED display
+#include <Wire.h> 
 #include <Adafruit_GFX.h>
 #include <Adafruit_SH110X.h>
 
@@ -18,7 +20,7 @@ class SwarmDisplay {
     char displayBuffer[20][7];
     int lineNumber;
   public:
-    SwarmDisplay(); 
+    SwarmDisplay();
     void begin();
     void clearDisplay();
     void display();

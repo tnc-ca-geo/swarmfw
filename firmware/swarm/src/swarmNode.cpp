@@ -1,4 +1,5 @@
 #include "swarmNode.h"
+// #include "serialWrapper.h"
 #include <Adafruit_GFX.h>
 // this library is driving the OLED display
 #include <Adafruit_SH110X.h>
@@ -6,10 +7,16 @@
 /*
  *  Constructor
  */
-SwarmNode::SwarmNode(SwarmDisplay *displayObject) {
+SwarmNode::SwarmNode(SwarmDisplay *displayObject, SerialBase *serialObject) {
   _displayRef=displayObject;
+  _serialRef=serialObject;
   messageCounter = 0;
 };
+
+void SwarmNode::testSerialWrapper() {
+  // Serial.print("Testing wrapper");
+  _serialRef->testSerial();
+}
 
 /*
  *   Initialize the SWARM tile

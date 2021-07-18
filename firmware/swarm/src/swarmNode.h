@@ -14,17 +14,23 @@
 #ifndef display.h
 #include "display.h"
 #endif
+#ifndef serialWrapper.h
+#include "serialWrapper.h"
+#endif
 #include <Arduino.h>
 
 class SwarmNode {
 
   private:
     SwarmDisplay *_displayRef;
+    SerialBase *_serialRef;
     unsigned long messageCounter;
 
   public:
-    SwarmNode(SwarmDisplay *displayObject);
+    SwarmNode(SwarmDisplay *displayObject, SerialBase *serialObject);
     void begin();
+    // TODO: remove
+    void testSerialWrapper();
     static size_t cleanCommand(const char *command, size_t len, char *bfr);
     static size_t getLine(char *bfr);
     int getTime(char *bfr);

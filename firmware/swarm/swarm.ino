@@ -14,19 +14,16 @@
  * 
  * Falk Schuetzenmeister, falk.schuetzenmeister@tnc.org
  * July 2021
- */
-#include <Wire.h> 
-// libraries driving the OLED display
-#include <Adafruit_GFX.h>
-#include <Adafruit_SH110X.h>
-
+ * 
+*/
 // include my own classes here
-// #include "src/display.h"
 #include "src/swarmNode.h" 
 
 // Adafruit_SH1107 display = Adafruit_SH1107(64, 128, &Wire);
-SwarmDisplay display = SwarmDisplay();
-SwarmNode tile = SwarmNode(&display);
+SwarmDisplay dspl = SwarmDisplay();
+MySerial wrapper = MySerial();
+SwarmNode tile = SwarmNode(&dspl, &wrapper);
+
 int16_t ctr = 0;
 // Sending every hour meets the monthly included rate if the month 
 // has 30 days, pay 60 cents extra for month with 31 days
@@ -67,18 +64,21 @@ unsigned long previousMillis=0;
 
 void setup() {
   // for debugging, wait until board is fully running
-  delay(1000);
   Serial.begin(9600);
+  // wait for Serial and hope that it is ready after a second
+  // but we would like to keep going if Serial is not available
+  delay(1000);
+  tile.testSerialWrapper();
   // Initialize display
-  display.begin();
+  dspl.begin();
   // add some boiler plate here
-  display.printBuffer("SWARM sensor node\n");
-  display.printBuffer("falk.schuetzenmeister@tnc.org\n");
-  display.printBuffer("July 2021\n");
+  dspl.printBuffer("SWARM sensor node\n");
+  dspl.printBuffer("falk.schuetzenmeister@tnc.org\n");
+  dspl.printBuffer("July 2021\n");
   delay(2000);
   // initialize tile
   tile.begin();
-  display.printBuffer("\nTILE INIT SUCCESSFUL\n");
+  dspl.printBuffer("\nTILE INIT SUCCESSFUL\n");
   // make sure we start immediately
   previousMillis = millis() - sendFrequencyInSeconds * 1000;
 }

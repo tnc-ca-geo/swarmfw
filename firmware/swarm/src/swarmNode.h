@@ -10,36 +10,35 @@
  *  - Use other numerical type of return is used to be as a number
  *  - Make helper methods static if they don't relay on instantiation
  */
-
-#ifndef display.h
-#include "display.h"
+#include <Arduino.h>
+#ifndef displayWrapper.h
+  #include "displayWrapper.h"
 #endif
 #ifndef serialWrapper.h
-#include "serialWrapper.h"
+  #include "serialWrapper.h"
 #endif
-#include <Arduino.h>
 
 class SwarmNode {
 
   private:
-    SwarmDisplay *_displayRef;
-    SerialBase *_serialRef;
+    DisplayWrapperBase *_displayRef;
+    SerialWrapperBase *_wrappedSerialRef;
     unsigned long messageCounter;
 
   public:
-    SwarmNode(SwarmDisplay *displayObject, SerialBase *serialObject);
+    SwarmNode(
+      DisplayWrapperBase *displayObject, SerialWrapperBase *wrappedSerialObject);
     void begin();
     // TODO: remove
-    void testSerialWrapper();
-    static size_t cleanCommand(const char *command, size_t len, char *bfr);
-    static size_t getLine(char *bfr);
+    size_t cleanCommand(const char *command, size_t len, char *bfr);
+    size_t getLine(char *bfr);
     int getTime(char *bfr);
     // from https://swarm.space/wp-content/uploads/2021/06/Swarm-Tile-Product-Manual.pdf
     // page 34
-    static uint8_t nmeaChecksum(const char *sz, size_t len);
-    static boolean parseLine(
+    uint8_t nmeaChecksum(const char *sz, size_t len);
+    boolean parseLine(
       const char *line, size_t len, const char *searchTerm, size_t searchLen);
-    static int parseTime(const char *timeResponse, size_t len);
+    int parseTime(const char *timeResponse, size_t len);
     void sendMessage(const char *message, size_t len);
-    virtual size_t tileCommand(const char *command, size_t len, char *bfr);
+    size_t tileCommand(const char *command, size_t len, char *bfr);
 };

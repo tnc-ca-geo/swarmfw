@@ -7,16 +7,12 @@
 /*
  *  Constructor
  */
-SwarmNode::SwarmNode(SwarmDisplay *displayObject, SerialBase *serialObject) {
+SwarmNode::SwarmNode(
+  DisplayWrapperBase *displayObject, SerialWrapperBase *wrappedSerialObject) {
   _displayRef=displayObject;
-  _serialRef=serialObject;
+  _wrappedSerialRef=wrappedSerialObject;
   messageCounter = 0;
 };
-
-void SwarmNode::testSerialWrapper() {
-  // Serial.print("Testing wrapper");
-  _serialRef->testSerial();
-}
 
 /*
  *   Initialize the SWARM tile
@@ -30,7 +26,7 @@ void SwarmNode::testSerialWrapper() {
 void SwarmNode::begin() {
   char bfr[256];
   size_t len=0;
-  Serial2.begin(115200);
+  // Serial2.begin(115200);
   tileCommand("$RS", 3, bfr);
   while (true) {
     len = getLine(bfr);
@@ -68,20 +64,15 @@ size_t SwarmNode::cleanCommand(const char *command, size_t len, char *bfr) {
 }
 
 /*
- *  get a line from Serial2
+ *  get a line _serialRef
  *
- *  We are currently using Serial2 in global space
- *  TODO: look into passing an instance instead
- *
- *  The current implementation is rather primitive, entirely relaying
- *  on the UART cache
  */
 size_t SwarmNode::getLine(char *bfr) {
   int idx = -1;
   char character;
-  if (Serial2.available()) {
+  if (_wrappedSerialRef->available()) {
     do {
-      character = Serial2.read();
+      character = _wrappedSerialRef->read();
       // if no character is in the Serial cash it will return 255
       // this is currently blocking until a newline character appears on
       // the Serial
@@ -215,6 +206,6 @@ void SwarmNode::sendMessage(const char *message, size_t len) {
   char commandBuffer[len+4];
   cleanCommand(command, len, commandBuffer);
   _displayRef->printBuffer(commandBuffer, len+4);
-  int res = Serial2.write(commandBuffer, len+4);
+  int res = _wrappedSerialRef->write(commandBuffer, len+4);
   return getLine(bfr);
 }

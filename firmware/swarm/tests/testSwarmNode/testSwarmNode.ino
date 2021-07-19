@@ -11,8 +11,9 @@ using namespace aunit;
 #include "src/swarmNode.h"
 // #include "src/serialWrapper.h"
 
-SwarmDisplay displ = SwarmDisplay();
-MySerial wrapper = MySerial();
+// By using the base classes we do not rely on the presence of particular Hardware
+DisplayWrapperBase displ = DisplayWrapperBase();
+SerialWrapperBase wrapper = SerialWrapperBase();
 SwarmNode testObj = SwarmNode(&displ, &wrapper);
 
 test(cleanCommand) {
@@ -33,6 +34,34 @@ test(parseLine) {
   assertFalse(testObj.parseLine("short", 5, "to long", 7));
 }
 
+class MockedSerialWrapper1: public SerialWrapperBase {
+  private:
+    uint8_t bfr[255];
+    int idx;
+    size_t sizeTestData;
+  public:
+    MockedSerialWrapper1() {
+      uint8_t testData[] = "$DT 20190408195123,V*41\nrubbish";
+      idx = -1;
+      sizeTestData = sizeof(testData);
+      memcpy(bfr, testData, sizeTestData);
+    };
+    char read() {
+      idx++;
+      if (idx < sizeTestData) return bfr[idx];
+      else return -1;
+    }
+};
+
+test(getTime) {
+  MockedSerialWrapper1 wrapper = MockedSerialWrapper1();
+  SwarmNode testNode = SwarmNode(&displ, &wrapper);
+  char bfr[255];
+  assertEqual(wrapper.read(), '$');
+  assertEqual(wrapper.read(), 'D');
+  testNode.tileCommand("$DT ", 4, bfr);
+};
+
 test(parseTime) {
   // example from SWARM Tile Manual 
   char validTimeResponse[] = "$DT 20190408195123,V*41\n";
@@ -42,24 +71,26 @@ test(parseTime) {
   assertEqual(testObj.parseTime(validTimeResponse, sizeof(validTimeResponse)), 1554753083);
 }
 
-class MockedSerial: public SerialBase {
+// 
+// this just tests whether we can actually pass a mocked class
+// TODO: remove when we are confident about our tests 
+//
+class MockedSerialWrapper: public SerialWrapperBase {
   public:
-    MockedSerial() {}; 
-    void testSerial() {
-      Serial.println("\n\nJust pretending\n");
-    }  
+    MockedSerialWrapper() {}; 
+    char read() { return 'a'; }
 };
-
 test(testMockSerial) {
-  MockedSerial mockedSerial = MockedSerial();
-  SwarmNode patchedNode = SwarmNode(&displ, &mockedSerial);
-  patchedNode.testSerialWrapper();
+  MockedSerialWrapper mockedSerialWrapper = MockedSerialWrapper();
+  SwarmNode patchedNode = SwarmNode(&displ, &mockedSerialWrapper);
+  assertEqual(mockedSerialWrapper.read(), 'a');
 }
 
 // the following sets up the Serial for feedback and starts the test runner
 // no need to touch
 void setup() {
   Serial.begin(9600);
+  delay(500);
   while(!Serial);
 }
 

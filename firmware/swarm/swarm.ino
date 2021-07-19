@@ -15,14 +15,12 @@
  * Falk Schuetzenmeister, falk.schuetzenmeister@tnc.org
  * July 2021
  * 
-*/
-// include my own classes here
+ */
 #include "src/swarmNode.h" 
 
-// Adafruit_SH1107 display = Adafruit_SH1107(64, 128, &Wire);
-SwarmDisplay dspl = SwarmDisplay();
-MySerial wrapper = MySerial();
-SwarmNode tile = SwarmNode(&dspl, &wrapper);
+DisplayWrapper dspl = DisplayWrapper();
+SerialWrapper srl = SerialWrapper(&Serial2, 115200);
+SwarmNode tile = SwarmNode(&dspl, &srl);
 
 int16_t ctr = 0;
 // Sending every hour meets the monthly included rate if the month 
@@ -63,12 +61,11 @@ unsigned long previousMillis=0;
 
 
 void setup() {
-  // for debugging, wait until board is fully running
+  // for debugging
   Serial.begin(9600);
-  // wait for Serial and hope that it is ready after a second
-  // but we would like to keep going if Serial is not available
+  // Wait for Serial and hope that it is ready after a second
+  // Keep going if Serial is not available
   delay(1000);
-  tile.testSerialWrapper();
   // Initialize display
   dspl.begin();
   // add some boiler plate here

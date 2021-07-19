@@ -3,7 +3,6 @@
  * SDI-12 sensor (eventually)
  * 
  * TODOs:
- * - investigate testing
  * - investigate use of modules accross projects
  * 
  * Current goals: 

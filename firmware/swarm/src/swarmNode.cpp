@@ -6,12 +6,18 @@
 
 /*
  *  Constructor
+ *
+ *  - pass wrappers for hardware dependant functionality.
+ *  - use dev=true for dev specific functionality, e.g. deleting unsent messages
  */
 SwarmNode::SwarmNode(
-  DisplayWrapperBase *displayObject, SerialWrapperBase *wrappedSerialObject) {
-  _displayRef=displayObject;
+  DisplayWrapperBase *wrappedDisplayObject,
+  SerialWrapperBase *wrappedSerialObject,
+  boolean const devMode)
+{
+  _wrappedDisplayRef=wrappedDisplayObject;
   _wrappedSerialRef=wrappedSerialObject;
-  messageCounter = 0;
+  dev = devMode;
 };
 
 /*
@@ -25,13 +31,13 @@ SwarmNode::SwarmNode(
  */
 void SwarmNode::begin() {
   char bfr[256];
-  size_t len=0;
+size_t len=0;
   // Serial2.begin(115200);
   tileCommand("$RS", 3, bfr);
   while (true) {
     len = getLine(bfr);
     if (len) {
-      _displayRef->printBuffer(bfr, len);
+      _wrappedDisplayRef->printBuffer(bfr, len);
       // TODO: this works only on actual start up. Find another way
       // to determine whether tile is ready
       if (parseLine(bfr, len, "$TILE BOOT,RUNNING*49", 21)) break;
@@ -39,13 +45,16 @@ void SwarmNode::begin() {
   }
   // FOR DEV delete all unsent messages to not use up our
   // 720 included messages with too many junk messages
-  len = tileCommand("$MT D=U", 7, bfr);
-  _displayRef->printBuffer(bfr, len);
+  if (dev) {
+    _wrappedDisplayRef->printBuffer("DEV MODE:\nDELETING OLD MESSAGES");
+    len = tileCommand("$MT D=U", 7, bfr);
+    _wrappedDisplayRef->printBuffer(bfr, len);
+  }
   do {
     delay(3000);
     len = getTime(bfr);
     // Serial.println(timeLen);
-    _displayRef->printBuffer(bfr, len);
+    _wrappedDisplayRef->printBuffer(bfr, len);
   } while (!parseLine(bfr, len, "$DT 20", 5));
 };
 
@@ -191,7 +200,7 @@ void SwarmNode::sendMessage(const char *message, size_t len) {
   memcpy(commandBfr + commandIdx, part3, sizeof(part3));
   commandIdx += sizeof(part3) - 1;
   len = tileCommand(commandBfr, commandIdx, res);
-  _displayRef->printBuffer(res, len);
+  _wrappedDisplayRef->printBuffer(res, len);
   messageCounter++;
 }
 
@@ -205,7 +214,7 @@ void SwarmNode::sendMessage(const char *message, size_t len) {
   size_t SwarmNode::tileCommand(const char *command, size_t len, char *bfr) {
   char commandBuffer[len+4];
   cleanCommand(command, len, commandBuffer);
-  _displayRef->printBuffer(commandBuffer, len+4);
+  _wrappedDisplayRef->printBuffer(commandBuffer, len+4);
   int res = _wrappedSerialRef->write(commandBuffer, len+4);
   return getLine(bfr);
 }

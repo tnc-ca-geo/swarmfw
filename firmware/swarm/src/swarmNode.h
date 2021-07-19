@@ -21,13 +21,15 @@
 class SwarmNode {
 
   private:
-    DisplayWrapperBase *_displayRef;
+    DisplayWrapperBase *_wrappedDisplayRef;
     SerialWrapperBase *_wrappedSerialRef;
+    boolean dev;
     unsigned long messageCounter;
 
   public:
     SwarmNode(
-      DisplayWrapperBase *displayObject, SerialWrapperBase *wrappedSerialObject);
+      DisplayWrapperBase *wrappedDisplayObject,
+      SerialWrapperBase *wrappedSerialObject, const boolean dev=true);
     void begin();
     // TODO: remove
     size_t cleanCommand(const char *command, size_t len, char *bfr);

@@ -9,7 +9,6 @@ using namespace aunit;
 // I am HACKING this with a symlink to the src directory for now.
 
 #include "src/swarmNode.h"
-// #include "src/serialWrapper.h"
 
 // By using the base classes we do not rely on the presence of particular Hardware
 DisplayWrapperBase displ = DisplayWrapperBase();
@@ -72,7 +71,7 @@ test(parseTime) {
 }
 
 // 
-// this just tests whether we can actually pass a mocked class
+// This is just tests whether we can actually pass a mocked class
 // TODO: remove when we are confident about our tests 
 //
 class MockedSerialWrapper: public SerialWrapperBase {

@@ -24,23 +24,28 @@ class SwarmNode {
     DisplayWrapperBase *_wrappedDisplayRef;
     SerialWrapperBase *_wrappedSerialRef;
     boolean dev;
-    unsigned long messageCounter;
+    // unsigned long messageCounter;
 
   public:
     SwarmNode(
       DisplayWrapperBase *wrappedDisplayObject,
       SerialWrapperBase *wrappedSerialObject, const boolean dev=true);
-    void begin();
+    void begin(const int timeReportingFrequency=60);
     // TODO: remove
-    size_t cleanCommand(const char *command, size_t len, char *bfr);
+    size_t cleanCommand(const char *command, const size_t len, char *bfr);
+    void emptySerialBuffer();
+    size_t formatMessage(const char *message, const size_t len, char *bfr);
     size_t getLine(char *bfr);
     int getTime(char *bfr);
+    unsigned long int waitForTimeStamp();
+    unsigned long int getTimeStamp();
     // from https://swarm.space/wp-content/uploads/2021/06/Swarm-Tile-Product-Manual.pdf
     // page 34
-    uint8_t nmeaChecksum(const char *sz, size_t len);
+    uint8_t nmeaChecksum(const char *sz, const size_t len);
     boolean parseLine(
-      const char *line, size_t len, const char *searchTerm, size_t searchLen);
-    int parseTime(const char *timeResponse, size_t len);
-    void sendMessage(const char *message, size_t len);
-    size_t tileCommand(const char *command, size_t len, char *bfr);
+      const char *line, const size_t len, const char *searchTerm,
+      const size_t searchLen);
+    unsigned long int parseTime(const char *timeResponse, const size_t len);
+    void sendMessage(const char *message, const size_t len);
+    size_t tileCommand(const char *command, const size_t len, char *bfr);
 };

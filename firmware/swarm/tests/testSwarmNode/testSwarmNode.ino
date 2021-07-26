@@ -33,32 +33,71 @@ test(parseLine) {
   assertFalse(testObj.parseLine("short", 5, "to long", 7));
 }
 
-class MockedSerialWrapper1: public SerialWrapperBase {
+test(formatMessage) {
+  char message[256];
+  int len = testObj.formatMessage("hallo", 5, message); 
+  assertEqual(len, 20);
+  for (int i=0; i<len; i++) assertEqual(message[i], "$TD HD=86400,\"hallo\""[i]);
+}
+
+class MockedSerialWrapper: public SerialWrapperBase {
   private:
-    uint8_t bfr[255];
-    int idx;
+    char bfr[256];
+    size_t idx;
     size_t sizeTestData;
   public:
-    MockedSerialWrapper1() {
-      uint8_t testData[] = "$DT 20190408195123,V*41\nrubbish";
+    char outBfr[256];
+    size_t outIdx;
+    MockedSerialWrapper() {
       idx = -1;
-      sizeTestData = sizeof(testData);
+      outIdx = 0;
+    };
+    void loadMockedSerialBuffer(char *testData, size_t len) {
+      idx = -1;
+      sizeTestData = len;
       memcpy(bfr, testData, sizeTestData);
+      for (int i=len; i<256; i++) bfr[i] = 255;
     };
     char read() {
       idx++;
       if (idx < sizeTestData) return bfr[idx];
       else return -1;
-    }
+    };
+    size_t write(char *bfr, size_t len) {
+      memcpy(outBfr, bfr, len);
+      outIdx = len; 
+    } 
 };
 
-test(getTime) {
-  MockedSerialWrapper1 wrapper = MockedSerialWrapper1();
+test(sendCommand) {
+  MockedSerialWrapper wrapper = MockedSerialWrapper();
   SwarmNode testNode = SwarmNode(&displ, &wrapper);
-  char bfr[255];
-  assertEqual(wrapper.read(), '$');
-  assertEqual(wrapper.read(), 'D');
-  testNode.tileCommand("$DT ", 4, bfr);
+  char bfr[32];
+  testNode.sendMessage("hello", 5);
+  for (int i=0; i<wrapper.outIdx; i++) {
+    assertEqual(wrapper.outBfr[i], "$TD HD=86400,\"hello\"*75\n");
+  }
+}
+
+test(getLine) {
+  char testData[] = "A line\nAnother line\nRubbish";
+  MockedSerialWrapper wrapper = MockedSerialWrapper();
+  wrapper.loadMockedSerialBuffer(testData, sizeof(testData));
+  SwarmNode testNode = SwarmNode(&displ, &wrapper);
+  char bfr[256];
+  // read the first line
+  int len = testNode.getLine(bfr);
+  assertEqual(len, 7);
+  for (int i=0; i<len; i++) assertEqual(bfr[i], "A line\n"[i]);
+  // read the second line
+  len = testNode.getLine(bfr);
+  assertEqual(len, 13);
+  for (int i=0; i<len; i++) assertEqual(bfr[i], "Another line\n"[i]); 
+  // make sure third, unterminated line is not blocking
+  // len = testNode.getLine(bfr);
+  // Serial.print("LEN: ");
+  // assertEqual(len, 8);
+  // for (int i=0; i<len; i++) assertEqual(bfr[i], "Another line\n"[i]); 
 };
 
 test(parseTime) {
@@ -66,23 +105,10 @@ test(parseTime) {
   char validTimeResponse[] = "$DT 20190408195123,V*41\n";
   char invalidTimeResponse[] = "Fuchsteufelswild\n";
   // return -1 if input cannot be interpreted as time response
-  assertEqual(testObj.parseTime(invalidTimeResponse, sizeof(invalidTimeResponse)), -1);
-  assertEqual(testObj.parseTime(validTimeResponse, sizeof(validTimeResponse)), 1554753083);
-}
-
-// 
-// This is just tests whether we can actually pass a mocked class
-// TODO: remove when we are confident about our tests 
-//
-class MockedSerialWrapper: public SerialWrapperBase {
-  public:
-    MockedSerialWrapper() {}; 
-    char read() { return 'a'; }
-};
-test(testMockSerial) {
-  MockedSerialWrapper mockedSerialWrapper = MockedSerialWrapper();
-  SwarmNode patchedNode = SwarmNode(&displ, &mockedSerialWrapper);
-  assertEqual(mockedSerialWrapper.read(), 'a');
+  assertEqual(
+    testObj.parseTime(invalidTimeResponse, sizeof(invalidTimeResponse)), -1);
+  assertEqual(
+    testObj.parseTime(validTimeResponse, sizeof(validTimeResponse)), 1554753083);
 }
 
 // the following sets up the Serial for feedback and starts the test runner

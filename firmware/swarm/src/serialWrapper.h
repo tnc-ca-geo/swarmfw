@@ -12,8 +12,9 @@
      virtual boolean available() {};
      virtual void begin(int speed) {};
      virtual char read() {};
+     // virtual int readLine(*bfr) {};
      virtual void write(byte character) {};
-     virtual int write(char *bfr, size_t len) {};
+     virtual size_t write(char *bfr, size_t len) {};
  };
 
  // Inherited class
@@ -28,5 +29,5 @@
     boolean available() { return _serialRef->available(); };
     char read() { return _serialRef->read(); };
     void write(byte character) { _serialRef->write(character); };
-    int write(char *bfr, size_t len) { return _serialRef->write(bfr, len); }
+    size_t write(char *bfr, size_t len) { return _serialRef->write(bfr, len); }
  };

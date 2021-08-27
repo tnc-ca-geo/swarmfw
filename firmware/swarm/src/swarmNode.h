@@ -30,7 +30,7 @@ class SwarmNode {
     SwarmNode(
       DisplayWrapperBase *wrappedDisplayObject,
       SerialWrapperBase *wrappedSerialObject, const boolean dev=true);
-    void begin(const int timeReportingFrequency=60);
+    void begin(const int timeReportingFrequency=600);
     // TODO: remove
     size_t cleanCommand(const char *command, const size_t len, char *bfr);
     void emptySerialBuffer();

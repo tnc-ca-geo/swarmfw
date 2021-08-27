@@ -104,17 +104,19 @@ test(parseTime) {
   // example from SWARM Tile Manual 
   char validTimeResponse[] = "$DT 20190408195123,V*41\n";
   char invalidTimeResponse[] = "Fuchsteufelswild\n";
-  // return -1 if input cannot be interpreted as time response
-  assertEqual(
-    testObj.parseTime(invalidTimeResponse, sizeof(invalidTimeResponse)), -1);
-  assertEqual(
-    testObj.parseTime(validTimeResponse, sizeof(validTimeResponse)), 1554753083);
+  // return 0 if input cannot be interpreted as time response
+  int res = testObj.parseTime(
+    invalidTimeResponse, sizeof(invalidTimeResponse));
+  assertEqual(res, 0);
+  res = testObj.parseTime(validTimeResponse, sizeof(validTimeResponse));
+  assertEqual(res, 1554753083);
 }
+
 
 // the following sets up the Serial for feedback and starts the test runner
 // no need to touch
 void setup() {
-  Serial.begin(9600);
+  Serial.begin(115200);
   delay(500);
   while(!Serial);
 }

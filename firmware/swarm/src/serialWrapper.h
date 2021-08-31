@@ -4,6 +4,9 @@
  *  otherwise since we might add some more complex functionality, e.g. an
  *  extended buffer size, interrupt driven read, etc.
  */
+#ifndef _SERIAL_WRAPPER_H_
+#define _SERIAL_WRAPPER_H_
+#endif
 
  // Base class
  class SerialWrapperBase {

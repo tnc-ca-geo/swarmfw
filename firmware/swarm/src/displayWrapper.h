@@ -6,6 +6,10 @@
  *  - adds functionality
  */
  // libraries driving the OLED display
+#ifndef _DISPLAY_WRAPPER_H_
+#define _DISPLAY_WRAPPER_H_
+#endif
+
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SH110X.h>

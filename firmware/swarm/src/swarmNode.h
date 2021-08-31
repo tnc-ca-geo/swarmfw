@@ -11,11 +11,11 @@
  *  - Make helper methods static if they don't relay on instantiation
  */
 #include <Arduino.h>
-#ifndef displayWrapper.h
-  #include "displayWrapper.h"
+#ifndef _DISPLAY_WRAPPER_H_
+#include "displayWrapper.h"
 #endif
-#ifndef serialWrapper.h
-  #include "serialWrapper.h"
+#ifndef _SERIAL_WRAPPER_H_
+#include "serialWrapper.h"
 #endif
 
 class SwarmNode {

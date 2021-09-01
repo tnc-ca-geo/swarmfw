@@ -35,7 +35,6 @@ size_t SDI12Measurement::readSDI12Buffer(char *bfr) {
 
 /*
  * Send an SDI-12 command and wait for return
- * - I am currently not happy about the wait commands
  */
 size_t SDI12Measurement::sendSDI12(char *cmd, char *bfr) {
   mySDI12.clearBuffer();
@@ -45,7 +44,9 @@ size_t SDI12Measurement::sendSDI12(char *cmd, char *bfr) {
   return readSDI12Buffer(bfr);
 };
 
-// a simple method to check configuration
+/*
+ * A simple method to check configuration
+ */
 size_t SDI12Measurement::getName(char *bfr) {
   char retString[] = "SDI 12 Measurement\0";
   size_t len = sizeof(retString);

@@ -247,7 +247,14 @@ void SwarmNode::sendMessage(const char *message, const size_t len) {
   char responseBfr[256];
   size_t responseLen;
   responseLen = formatMessage(message, len, commandBfr);
+  Serial.print("MESSAGE LENGTH ");
+  Serial.println(responseLen);
+  Serial.write(commandBfr, responseLen);
+  Serial.println();
   responseLen = tileCommand(commandBfr, responseLen, responseBfr);
+  Serial.print("RESPONSE");
+  Serial.write(responseBfr, responseLen);
+  Serial.println();
   _wrappedDisplayRef->printBuffer(responseBfr, responseLen);
 }
 
@@ -261,6 +268,8 @@ void SwarmNode::sendMessage(const char *message, const size_t len) {
   size_t SwarmNode::tileCommand(const char *command, size_t len, char *bfr) {
   char commandBfr[len+4];
   cleanCommand(command, len, commandBfr);
+  Serial.write(commandBfr, len+4);
+  Serial.println();
   _wrappedDisplayRef->printBuffer(commandBfr, len+4);
   _wrappedSerialRef->write(commandBfr, len+4);
   return getLine(bfr);

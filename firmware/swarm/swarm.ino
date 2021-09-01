@@ -129,15 +129,14 @@ void loop() {
     dspl.printBuffer(timeMessage, strLen);
     // get measurement from SDI-12 device on address 0
     size_t payloadLen = measurement.getPayload('0', payloadBfr);
-    Serial.println("Message:");
-    Serial.write(payloadBfr, payloadLen);
-    Serial.println();
     size_t messageLen = assembleMessage(
       messageCounter, tileTime, payloadBfr, payloadLen, 
       getBatteryVoltage(), messageBfr);
+    Serial.println("Message:");
+    Serial.write(messageBfr, messageLen);
+    Serial.println();
     tile.sendMessage(messageBfr, messageLen);
     nextScheduled = getNextScheduled(tileTime, sendFrequencyInSeconds);
     messageCounter++;
   }
-  delay(10000);
 }

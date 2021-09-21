@@ -21,7 +21,7 @@ class DisplayWrapperBase {
     virtual void begin() {};
     virtual void clearDisplay() {};
     virtual void display() {};
-    virtual int getCursorY() {};
+    virtual int getCursorY() { return 0; };
     virtual void print(char character) {};
     virtual void printBuffer(char *bfr, size_t len) {};
     virtual void printBuffer(String string) {};
@@ -67,11 +67,11 @@ class DisplayWrapper: public DisplayWrapperBase {
     };
 
     void printBuffer(String string) {
-      char bffr[256];
+      char bffr[512];
       int len = string.length();
-      if (len > 255) {
-        string = string.substring(0, 255);
-        len = 255;
+      if (len > 512) {
+        string = string.substring(0, 512);
+        len = 512;
       }
       // not sure why we need len+1 here but last letter
       // get truncated otherwise

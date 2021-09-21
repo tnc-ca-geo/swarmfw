@@ -15,8 +15,8 @@
  * September 2021
  * 
  */
-// used for watchdg functionality
-#include <esp_task_wdt.h>
+// used for watchdog functionality
+// #include <esp_task_wdt.h>
 // my libraries
 #include "src/displayWrapper.h"
 #include "src/serialWrapper.h"
@@ -37,7 +37,7 @@ SDI12Measurement measurement = SDI12Measurement();
 const unsigned int sendFrequencyInSeconds = 3600;
 // time polling frequency, set on the tile for unsolicitated time messages
 // this determines the precision of the send schedule but also power consumption
-const int tileTimeFrequency = 20;
+const int tileTimeFrequency = 60;
 // the watchdog reset time should be a multiple of the tileTimeFrequency since it
 // is blocking
 const int watchDogResetTime = 5 * tileTimeFrequency;
@@ -132,9 +132,10 @@ void loop() {
     size_t messageLen = assembleMessage(
       messageCounter, tileTime, payloadBfr, payloadLen, 
       getBatteryVoltage(), messageBfr);
-    Serial.println("Message:");
-    Serial.write(messageBfr, messageLen);
-    Serial.println();
+    if (Serial) { 
+      Serial.write(messageBfr, messageLen);
+      Serial.println();
+    }
     tile.sendMessage(messageBfr, messageLen);
     nextScheduled = getNextScheduled(tileTime, sendFrequencyInSeconds);
     messageCounter++;

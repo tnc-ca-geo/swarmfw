@@ -96,10 +96,12 @@ size_t SDI12Measurement::getPayload(char addr, char *bfr) {
 void SDI12Measurement::debug() {
   char bfr[256];
   size_t len;
-  len = getName(bfr);
-  Serial.println(bfr);
-  len = getInfo(bfr);
-  Serial.println(bfr);
-  len = getPayload('0', bfr);
-  Serial.println(bfr);
+  if (Serial) {
+    len = getName(bfr);
+    Serial.println(bfr);
+    len = getInfo(bfr);
+    Serial.println(bfr);
+    len = getPayload('0', bfr);
+    Serial.println(bfr);
+  }
 }

@@ -3,6 +3,7 @@
 #include <Adafruit_GFX.h>
 // this library is driving the OLED display
 #include <Adafruit_SH110X.h>
+#include <time.h>
 
 /*
  *  Constructor
@@ -12,13 +13,11 @@
  */
 SwarmNode::SwarmNode(
   DisplayWrapperBase *wrappedDisplayObject,
-  SerialWrapperBase *wrappedSerialObject,
-  boolean const devMode)
+  SerialWrapperBase *wrappedSerialObject, boolean const devMode)
 {
   _wrappedDisplayRef = wrappedDisplayObject;
   _wrappedSerialRef = wrappedSerialObject;
   dev = devMode;
-  // messageCounter = 0;
 };
 
 /*
@@ -53,7 +52,6 @@ void SwarmNode::begin(const int timeReportingFrequency) {
   size_t timeFrequencyBffrLen = 0;
   timeFrequencyBffrLen = sprintf(
     timeFrequencyBffr, "$DT %i", timeReportingFrequency);
-  // Serial.write(timeFrequencyBffr, timeFrequencyBffrLen);
   tileCommand(timeFrequencyBffr, timeFrequencyBffrLen, bfr);
   // wait until we obtain a valid date
   while (waitForTimeStamp() == 0);
@@ -82,7 +80,8 @@ size_t SwarmNode::cleanCommand(
  *    messages and still prone to race conditions
  */
 void SwarmNode::emptySerialBuffer() {
-  while (_wrappedSerialRef->read() != 255);
+  char bfr[255];
+  while (getLine(bfr) > 0);
 }
 
 /*
@@ -94,7 +93,7 @@ size_t SwarmNode::getLine(char *bfr) {
   if (_wrappedSerialRef->available()) {
     do {
       character = _wrappedSerialRef->read();
-      // if no character is in the Serial cash it will return 255
+      // if no character is in the Serial cache it will return 255
       // this is currently blocking until a newline character appears on
       // the Serial
       if (character != 255) {
@@ -107,6 +106,13 @@ size_t SwarmNode::getLine(char *bfr) {
     // - when no characters left
     } while (character != 10 and idx < 256);
   }
+  /* if (idx>2) {
+    if (Serial) {
+      Serial.print("DEBUG ");
+      Serial.write(bfr, idx+1);
+      Serial.println();
+    }
+  } */
   return idx+1;
 }
 
@@ -198,6 +204,7 @@ unsigned long int SwarmNode::parseTime(
   const char *timeResponse, const size_t len
 ) {
   char part[5];
+  // see https://newbedev.com/shell-arduino-esp32-getlocaltime-time-h-struct-tm-code-example
   struct tm time = {0};
   // this is a little bit lazy way to determine whether we have the
   // right message type but it will work for the next 979 years
@@ -227,35 +234,37 @@ unsigned long int SwarmNode::parseTime(
 /*
  * Format a message
  */
-size_t SwarmNode::formatMessage(const char *message, size_t len, char *bfr) {
-  char prefix[] = "$TD HD=86400,\"";
+size_t SwarmNode::formatMessage(
+  const char *message, const size_t len, char *bfr
+) {
+  char prefix[] = "$TD HD=86400,";
   size_t commandIdx = sizeof(prefix) - 1;
+  Serial.println("DEBUG 4");
   memcpy(bfr, prefix, commandIdx);
-  for (int i=0; i<len; i++) {
-    bfr[commandIdx] = message[i];
-    commandIdx++;
-  }
-  bfr[commandIdx] = '"';
-  return commandIdx + 1;
+  Serial.println("DEBUG 5");
+  // limit by Tile spec
+  char convertedMessage[512];
+  size_t convertedLen = toHexString(message, len, convertedMessage);
+  Serial.println("DEBUG 6");
+  memcpy(bfr + commandIdx, convertedMessage, convertedLen);
+  Serial.println("DEBUG 7");
+  commandIdx = commandIdx + convertedLen;
+  return commandIdx;
 }
 
 /*
  * Format a text message, add metadata, and send to tile
  */
 void SwarmNode::sendMessage(const char *message, const size_t len) {
-  char commandBfr[256];
-  char responseBfr[256];
-  size_t responseLen;
-  responseLen = formatMessage(message, len, commandBfr);
-  Serial.print("MESSAGE LENGTH ");
-  Serial.println(responseLen);
-  Serial.write(commandBfr, responseLen);
-  Serial.println();
+  char commandBfr[512];
+  char responseBfr[512];
+  size_t responseLen=len;
+  // Serial.println("DEBUG 1");
+  responseLen = formatMessage(message, responseLen, commandBfr);
+  // Serial.println("DEBUG 2");
   responseLen = tileCommand(commandBfr, responseLen, responseBfr);
-  Serial.print("RESPONSE");
-  Serial.write(responseBfr, responseLen);
-  Serial.println();
-  _wrappedDisplayRef->printBuffer(responseBfr, responseLen);
+  // Serial.println("DEBUG 3");
+  // _wrappedDisplayRef->printBuffer(responseBfr, responseLen);
 }
 
 /*
@@ -265,12 +274,32 @@ void SwarmNode::sendMessage(const char *message, const size_t len) {
  * a race condition since an unsolicitated message could arrive in the meanwhile
  * TODO: remove serial buffer and give entire control to waitForTimeStamp routine
  */
-  size_t SwarmNode::tileCommand(const char *command, size_t len, char *bfr) {
-  char commandBfr[len+4];
-  cleanCommand(command, len, commandBfr);
-  Serial.write(commandBfr, len+4);
-  Serial.println();
-  _wrappedDisplayRef->printBuffer(commandBfr, len+4);
-  _wrappedSerialRef->write(commandBfr, len+4);
-  return getLine(bfr);
-}
+ size_t SwarmNode::tileCommand(const char *command, size_t len, char *bfr) {
+   char commandBfr[len+4];
+   cleanCommand(command, len, commandBfr);
+   _wrappedDisplayRef->printBuffer(commandBfr, len+4);
+   _wrappedSerialRef->write(commandBfr, len+4);
+   return getLine(bfr);
+ }
+
+ /*
+  * Convert to ASCII representation of the HEX values because of special
+  * characters
+  *
+  * - TODO: adapt for \0 terminated strings
+  */
+  size_t SwarmNode::toHexString(
+    const char *inputBfr, const size_t inputLength, char *bfr
+  ) {
+    size_t res = 2 * inputLength;
+    // Serial.println(static_cast<double>(inputLength));
+    for (int i=0; i < static_cast<double>(inputLength); i++) {
+      char smallBfr[2];
+      sprintf(smallBfr, "%02x", inputBfr[i]);
+      // Serial.print("OFFSET ");
+      // Serial.println(i*2);
+      memcpy(bfr+i*2, smallBfr, 2);
+    }
+    // Serial.println("DEBUG 8");
+    return res;
+  }

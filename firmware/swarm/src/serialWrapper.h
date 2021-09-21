@@ -12,12 +12,12 @@
  class SerialWrapperBase {
    public:
      virtual ~SerialWrapperBase() {};
-     virtual boolean available() {};
+     virtual boolean available() { return false; };
      virtual void begin(int speed) {};
-     virtual char read() {};
+     virtual char read() { return 0; };
      // virtual int readLine(*bfr) {};
      virtual void write(byte character) {};
-     virtual size_t write(char *bfr, size_t len) {};
+     virtual size_t write(char *bfr, size_t len) { return 0; };
  };
 
  // Inherited class

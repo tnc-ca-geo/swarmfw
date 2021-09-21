@@ -24,7 +24,6 @@ class SwarmNode {
     DisplayWrapperBase *_wrappedDisplayRef;
     SerialWrapperBase *_wrappedSerialRef;
     boolean dev;
-    // unsigned long messageCounter;
 
   public:
     SwarmNode(
@@ -47,5 +46,6 @@ class SwarmNode {
       const size_t searchLen);
     unsigned long int parseTime(const char *timeResponse, const size_t len);
     void sendMessage(const char *message, const size_t len);
+    size_t toHexString(const char *inputBuffer, const size_t inputLength, char *bfr);
     size_t tileCommand(const char *command, const size_t len, char *bfr);
 };

@@ -1,14 +1,16 @@
 /*
  *  Header file for SWARM tile interaction
  *
- *  Naming and type use conventions:
+ *  Naming and typing conventions:
  *
  *  - Use *bfr for output
- *  - Make input buffers constants to not manipulate them within functions
+ *  - Declare input buffers constant to not manipulate within functions
  *  - Name input buffers according to their expected content
  *  - Use size_t len for object length throughout
- *  - Use other numerical type of return is used to be as a number
+ *  - Use different numerical type of return if is used as actual number
  *  - Make helper methods static if they don't relay on instantiation
+ *  - Use const in header file declaration since we are open source anyways
+ *  - Currently all methods are implemented public for simpler testing
  */
 #include <Arduino.h>
 #ifndef _DISPLAY_WRAPPER_H_
@@ -17,6 +19,7 @@
 #ifndef _SERIAL_WRAPPER_H_
 #include "serialWrapper.h"
 #endif
+
 
 class SwarmNode {
 
@@ -29,8 +32,7 @@ class SwarmNode {
     SwarmNode(
       DisplayWrapperBase *wrappedDisplayObject,
       SerialWrapperBase *wrappedSerialObject, const boolean dev=true);
-    void begin(const int timeReportingFrequency=60);
-    // TODO: remove
+    void begin(const uint32_t timeReportingFrequency=60);
     size_t cleanCommand(const char *command, const size_t len, char *bfr);
     void emptySerialBuffer();
     size_t formatMessage(const char *message, const size_t len, char *bfr);
@@ -46,6 +48,7 @@ class SwarmNode {
       const size_t searchLen);
     unsigned long int parseTime(const char *timeResponse, const size_t len);
     void sendMessage(const char *message, const size_t len);
-    size_t toHexString(const char *inputBuffer, const size_t inputLength, char *bfr);
+    size_t toHexString(
+      const char *inputBuffer, const size_t len, char *bfr);
     size_t tileCommand(const char *command, const size_t len, char *bfr);
 };

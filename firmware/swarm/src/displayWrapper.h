@@ -62,13 +62,13 @@ class DisplayWrapper: public DisplayWrapperBase {
           thisDisplay.clearDisplay();
           thisDisplay.setCursor(0, 0);
       }
-      for (int i=0; i<len; i++) thisDisplay.print(bfr[i]);
+      for (uint16_t i=0; i<len; i++) thisDisplay.print(bfr[i]);
       thisDisplay.display();
     };
 
     void printBuffer(String string) {
       char bffr[512];
-      int len = string.length();
+      uint16_t len = string.length();
       if (len > 512) {
         string = string.substring(0, 512);
         len = 512;

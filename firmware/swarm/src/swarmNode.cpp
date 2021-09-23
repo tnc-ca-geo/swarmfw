@@ -8,12 +8,12 @@
 /*
  *  Constructor
  *
- *  - pass wrappers for hardware dependant functionality.
+ *  - pass wrappers for hardware dependant functionality or mocks for testing
  *  - use dev=true for dev specific functionality, e.g. deleting unsent messages
  */
 SwarmNode::SwarmNode(
   DisplayWrapperBase *wrappedDisplayObject,
-  SerialWrapperBase *wrappedSerialObject, boolean const devMode)
+  SerialWrapperBase *wrappedSerialObject, const boolean devMode)
 {
   _wrappedDisplayRef = wrappedDisplayObject;
   _wrappedSerialRef = wrappedSerialObject;
@@ -21,39 +21,41 @@ SwarmNode::SwarmNode(
 };
 
 /*
- *   Initialize the SWARM tile
+ *  Initialize SWARM tile
  *
- *   Issue a reset to the SWARM tile immediately. The tile will not
- *   be ready to receive the command if starting up anyways. However it
- *   will restart if already running.
+ *  - Issue a reset to the SWARM tile immediately. Tile will not be ready to
+ *  receive the command if starting up anyways. It will restart if already
+ *  running. For now the simpliest way to achieve a known state.
  *
- *   NOT INCLUDED IN TESTING
+ *  NOT INCLUDED IN TESTS
  */
-void SwarmNode::begin(const int timeReportingFrequency) {
-  char bfr[256];
+void SwarmNode::begin(const uint32_t timeReportingFrequency) {
+  // We can limit the buffer size since we exactly know how long the buffers
+  // within the begin method will be
+  char bfr[32];
+  char timeFrequencyBfr[16];
   size_t len=0;
+  // issue tile reset
   tileCommand("$RS", 3, bfr);
+  // wait for indication that tile is running
   while (true) {
     len = getLine(bfr);
     if (len) {
       _wrappedDisplayRef->printBuffer(bfr, len);
-      // TODO: this works only on actual start up. Find another way
-      // to determine whether tile is ready
       if (parseLine(bfr, len, "$TILE BOOT,RUNNING*49", 21)) break;
     }
   }
-  // FOR DEV delete all unsent messages to not use up our
-  // 720 included messages with too many junk messages
+  // IF dev=true delete all unsent messages to not use up 720 monthly included
+  // messages while developing and testing
   if (dev) {
     _wrappedDisplayRef->printBuffer("DEV MODE:\nDELETING OLD MESSAGES");
     len = tileCommand("$MT D=U", 7, bfr);
   }
-  char timeFrequencyBffr[16];
-  size_t timeFrequencyBffrLen = 0;
-  timeFrequencyBffrLen = sprintf(
-    timeFrequencyBffr, "$DT %i", timeReportingFrequency);
-  tileCommand(timeFrequencyBffr, timeFrequencyBffrLen, bfr);
-  // wait until we obtain a valid date
+  // configure the frequency at which a time report is issued
+  len = sprintf(
+    timeFrequencyBfr, "$DT %i", timeReportingFrequency);
+  tileCommand(timeFrequencyBfr, len, bfr);
+  // wait until we obtain a valid time message
   while (waitForTimeStamp() == 0);
 };
 
@@ -63,21 +65,24 @@ void SwarmNode::begin(const int timeReportingFrequency) {
 size_t SwarmNode::cleanCommand(
   const char *command, const size_t len, char *bfr
 ) {
+  // sprintf returns trailing \0 terminator
+  char hexbfr[3];
   memcpy(bfr, command, len);
   bfr[len] = '*';
-  char hexbfr[2];
   sprintf(hexbfr, "%02x", nmeaChecksum(command, len));
-  for (int i=0; i<2; i++) bfr[len+1+i] = hexbfr[i];
-  bfr[len+3] = '\n';
-  bfr[len+4] = '\0';
+  // don't use \0 terminators
+  memcpy(bfr+len+1, hexbfr, 2);
+  memcpy(bfr+len+3, "\n\0", 2);
   return len + 5;
 }
 
 /*
  *  make sure there is nothing in the Serial buffer
  *
- *  - very crude solution to the problem of unsolicitated
- *    messages and still prone to race conditions
+ *  - very crude solution to the problem of unsolicitated messages and still
+ *  prone to weird conditions
+ *  - we currently assigning result to an actual buffer which is a waste of
+ #  memory but does not really matter in our case
  */
 void SwarmNode::emptySerialBuffer() {
   char bfr[255];
@@ -85,10 +90,10 @@ void SwarmNode::emptySerialBuffer() {
 }
 
 /*
- *  get a line _serialRef
+ *  get a line from _serialRef
  */
 size_t SwarmNode::getLine(char *bfr) {
-  int idx = -1;
+  uint16_t idx = 0;
   char character;
   if (_wrappedSerialRef->available()) {
     do {
@@ -97,27 +102,20 @@ size_t SwarmNode::getLine(char *bfr) {
       // this is currently blocking until a newline character appears on
       // the Serial
       if (character != 255) {
-        idx ++;
         bfr[idx] = character;
+        idx ++;
       }
     // return if
     // - EOL
-    // - 255 characters have been returned
+    // - 255 char has been returned
     // - when no characters left
-    } while (character != 10 and idx < 256);
+    } while (character != 10 and character != 255 and idx < 256);
   }
-  /* if (idx>2) {
-    if (Serial) {
-      Serial.print("DEBUG ");
-      Serial.write(bfr, idx+1);
-      Serial.println();
-    }
-  } */
-  return idx+1;
+  return idx;
 }
 
 /*
- * read time
+ * issue a time command and read the result
  */
 int SwarmNode::getTime(char *bfr) {
   size_t len = tileCommand("$DT @", 5, bfr);
@@ -136,8 +134,8 @@ unsigned long int SwarmNode::getTimeStamp() {
 
 /*
  * Since time reporting works on an unsolicitated basis we need to wait for a
- * time report to exactly sync the loop.
- * This function is blocking and return time depends on the setting of the
+ * time report to sync the loop.
+ * This function is blocking and returns time depending on the setting of the
  * reporting frequency which also determines precision and power consumption
  * This function should govern the main loop and the measurement timing
  */
@@ -170,7 +168,7 @@ uint8_t SwarmNode::nmeaChecksum(const char *sz, const size_t len) {
 }
 
 /*
- * Parse a line and return whether it contains another starting
+ * Parse a line and return whether it contains another
  *
  * TODO: There is probably a native command to do that
  * TODO: return integer first position for more functionality
@@ -181,9 +179,9 @@ boolean SwarmNode::parseLine(
 ) {
   boolean ret = false;
   if (searchLen > len) return false;
-  for (int i=0; i < len-searchLen; i++) {
+  for (size_t i=0; i < len-searchLen; i++) {
     ret = true;
-    for (int j=0; j < searchLen; j++) {
+    for (size_t j=0; j < searchLen; j++) {
       if (searchTerm[j] != line[i+j]) {
         ret = false;
         break;
@@ -237,19 +235,14 @@ unsigned long int SwarmNode::parseTime(
 size_t SwarmNode::formatMessage(
   const char *message, const size_t len, char *bfr
 ) {
-  char prefix[] = "$TD HD=86400,";
-  size_t commandIdx = sizeof(prefix) - 1;
-  Serial.println("DEBUG 4");
-  memcpy(bfr, prefix, commandIdx);
-  Serial.println("DEBUG 5");
   // limit by Tile spec
   char convertedMessage[512];
+  char prefix[] = "$TD HD=86400,";
+  size_t commandIdx = sizeof(prefix) - 1;
+  memcpy(bfr, prefix, commandIdx);
   size_t convertedLen = toHexString(message, len, convertedMessage);
-  Serial.println("DEBUG 6");
   memcpy(bfr + commandIdx, convertedMessage, convertedLen);
-  Serial.println("DEBUG 7");
-  commandIdx = commandIdx + convertedLen;
-  return commandIdx;
+  return commandIdx + convertedLen;
 }
 
 /*
@@ -259,22 +252,18 @@ void SwarmNode::sendMessage(const char *message, const size_t len) {
   char commandBfr[512];
   char responseBfr[512];
   size_t responseLen=len;
-  // Serial.println("DEBUG 1");
   responseLen = formatMessage(message, responseLen, commandBfr);
-  // Serial.println("DEBUG 2");
   responseLen = tileCommand(commandBfr, responseLen, responseBfr);
-  // Serial.println("DEBUG 3");
-  // _wrappedDisplayRef->printBuffer(responseBfr, responseLen);
 }
 
 /*
  * Send a command to the tile
- * TODO: implement NMEA checksum
- * - currently only returning the last line of response, however that creates
- * a race condition since an unsolicitated message could arrive in the meanwhile
- * TODO: remove serial buffer and give entire control to waitForTimeStamp routine
+ *
+ * - returns the last complete line of the Serial response
+ * - we are currently loosing some of the unsolictated messages
+ * - we only acknowls
  */
- size_t SwarmNode::tileCommand(const char *command, size_t len, char *bfr) {
+ size_t SwarmNode::tileCommand(const char *command, const size_t len, char *bfr) {
    char commandBfr[len+4];
    cleanCommand(command, len, commandBfr);
    _wrappedDisplayRef->printBuffer(commandBfr, len+4);
@@ -283,23 +272,20 @@ void SwarmNode::sendMessage(const char *message, const size_t len) {
  }
 
  /*
-  * Convert to ASCII representation of the HEX values because of special
-  * characters
-  *
-  * - TODO: adapt for \0 terminated strings
+  * Convert to ASCII representation of HEX values; because of special
+  * characters that cannot be transmitted as double-quoted string
+  * See TD section in SWARM manual
   */
   size_t SwarmNode::toHexString(
-    const char *inputBfr, const size_t inputLength, char *bfr
+    const char *inputBfr, const size_t len, char *bfr
   ) {
-    size_t res = 2 * inputLength;
-    // Serial.println(static_cast<double>(inputLength));
-    for (int i=0; i < static_cast<double>(inputLength); i++) {
-      char smallBfr[2];
+    // sprintf outputs a terminating \0 character for this reason length 3
+    // see https://stackoverflow.com/questions/3706086/using-sprintf-will-change-the-specified-variable
+    char smallBfr[3];
+    for (size_t i=0; i<len; i++) {
       sprintf(smallBfr, "%02x", inputBfr[i]);
-      // Serial.print("OFFSET ");
-      // Serial.println(i*2);
+      // use without the terminating \0 character
       memcpy(bfr+i*2, smallBfr, 2);
     }
-    // Serial.println("DEBUG 8");
-    return res;
+    return len * 2;
   }

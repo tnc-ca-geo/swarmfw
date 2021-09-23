@@ -13,7 +13,7 @@
    public:
      virtual ~SerialWrapperBase() {};
      virtual boolean available() { return false; };
-     virtual void begin(int speed) {};
+     virtual void begin(uint32_t speed) {};
      virtual char read() { return 0; };
      // virtual int readLine(*bfr) {};
      virtual void write(byte character) {};
@@ -25,7 +25,7 @@
   private:
     HardwareSerial *_serialRef;
   public:
-    SerialWrapper(HardwareSerial *serial, int speed) {
+    SerialWrapper(HardwareSerial *serial, uint32_t speed) {
       _serialRef = serial;
       _serialRef->begin(speed);
     };

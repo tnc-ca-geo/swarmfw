@@ -58,25 +58,29 @@ class DisplayWrapper: public DisplayWrapperBase {
     void print(char character) { thisDisplay.print(character); };
 
     void printBuffer(char *bfr, size_t len) {
+      Serial.print("DEBUG PRINT BUFFER");
       if (thisDisplay.getCursorY() > 60) {
           thisDisplay.clearDisplay();
           thisDisplay.setCursor(0, 0);
       }
-      for (uint16_t i=0; i<len; i++) thisDisplay.print(bfr[i]);
+      for (size_t i=0; i<len; i++) {
+        Serial.println(i);
+        thisDisplay.print(bfr[i]);
+      }
       thisDisplay.display();
     };
 
     void printBuffer(String string) {
-      char bffr[512];
-      uint16_t len = string.length();
+      char bfr[512];
+      size_t len = string.length();
       if (len > 512) {
         string = string.substring(0, 512);
         len = 512;
       }
       // not sure why we need len+1 here but last letter
       // get truncated otherwise
-      string.toCharArray(bffr, len+1);
-      printBuffer(bffr, len);
+      string.toCharArray(bfr, len+1);
+      printBuffer(bfr, len);
     };
 
     void println(String line) { thisDisplay.println(line); };

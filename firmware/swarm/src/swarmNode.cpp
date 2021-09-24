@@ -29,21 +29,19 @@ SwarmNode::SwarmNode(
  *
  *  NOT INCLUDED IN TESTS
  */
-void SwarmNode::begin(const uint32_t timeReportingFrequency) {
+void SwarmNode::begin(const unsigned long int timeReportingFrequency) {
   // We can limit the buffer size since we exactly know how long the buffers
   // within the begin method will be
-  char bfr[32];
+  char bfr[128];
   char timeFrequencyBfr[16];
   size_t len=0;
   // issue tile reset
-  tileCommand("$RS", 3, bfr);
+  len = tileCommand("$RS", 3, bfr);
   // wait for indication that tile is running
   while (true) {
     len = getLine(bfr);
-    if (len) {
-      _wrappedDisplayRef->printBuffer(bfr, len);
-      if (parseLine(bfr, len, "$TILE BOOT,RUNNING*49", 21)) break;
-    }
+    if (len) _wrappedDisplayRef->printBuffer(bfr, len);
+    if (parseLine(bfr, len, "$TILE BOOT,RUNNING", 18)) break;
   }
   // IF dev=true delete all unsent messages to not use up 720 monthly included
   // messages while developing and testing
@@ -93,7 +91,7 @@ void SwarmNode::emptySerialBuffer() {
  *  get a line from _serialRef
  */
 size_t SwarmNode::getLine(char *bfr) {
-  uint16_t idx = 0;
+  size_t idx = 0;
   char character;
   if (_wrappedSerialRef->available()) {
     do {
@@ -174,21 +172,25 @@ uint8_t SwarmNode::nmeaChecksum(const char *sz, const size_t len) {
  * TODO: return integer first position for more functionality
  */
 boolean SwarmNode::parseLine(
-  const char *line, size_t len, const char *searchTerm,
+  const char *line, const size_t len, const char *searchTerm,
   const size_t searchLen
 ) {
   boolean ret = false;
-  if (searchLen > len) return false;
-  for (size_t i=0; i < len-searchLen; i++) {
-    ret = true;
-    for (size_t j=0; j < searchLen; j++) {
-      if (searchTerm[j] != line[i+j]) {
-        ret = false;
-        break;
+  if (searchLen <= len) {
+    for (size_t i=0; i < len-searchLen; i++) {
+      ret = true;
+      for (size_t j=0; j < searchLen; j++) {
+        if (searchTerm[j] != line[i+j]) {
+          ret = false;
+          break;
+        }
       }
+      if (ret) break;
     }
-    if (ret) break;
   }
+  Serial.println("RESULT");
+  Serial.print(ret);
+  Serial.println();
   return ret;
 }
 

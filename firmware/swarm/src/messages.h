@@ -25,21 +25,6 @@ class MessageHelpers {
 
   public:
 
-    static size_t assembleMessage(
-      const unsigned long int ctr, const unsigned long int timeStamp,
-      const char *payload, const size_t len, const float batteryVoltage,
-      char *bfr
-    ) {
-      sprintf(bfr, "%06u", ctr);
-      bfr[6] = ',';
-      sprintf(bfr+7, "%10d", timeStamp);
-      bfr[17] = ',';
-      memcpy(bfr+18, payload, len);
-      bfr[len+18] = ',';
-      sprintf(bfr+len+19, "%1.2f", batteryVoltage);
-      return len+23;
-    };
-
     /*
      * Convert message struct into a string. char buffers need to be \0
      * terminated or they will added at the lenght of their definition

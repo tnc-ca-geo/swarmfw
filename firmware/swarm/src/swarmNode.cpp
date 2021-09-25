@@ -37,6 +37,9 @@ void SwarmNode::begin(const unsigned long int timeReportingFrequency) {
   size_t len=0;
   // issue tile reset
   len = tileCommand("$RS", 3, bfr);
+  // see on the very bottom of https://github.com/astuder/SwarmTile
+  // UNDOCUMENTED
+  len = tileCommand("$RS dbinit", 10, bfr);
   // wait for indication that tile is running
   while (true) {
     len = getLine(bfr);
@@ -188,9 +191,6 @@ boolean SwarmNode::parseLine(
       if (ret) break;
     }
   }
-  Serial.println("RESULT");
-  Serial.print(ret);
-  Serial.println();
   return ret;
 }
 

@@ -84,8 +84,12 @@ size_t SDI12Measurement::getPayload(char addr, char *bfr) {
     char cmd[] = {addr, 'D', i, '!', 0};
     len = sendSDI12(cmd, rspns);
     memcpy(bfr+resIndex, rspns+1, len);
-    resIndex += len;
+    // the response is \0 terminated but we want to concatenate those returns
+    // for this reason we override the last character of the prior copy
+    resIndex += len-1;
   }
+  // however we would like to maintain one \0 at the end
+  resIndex + 1;
   return resIndex;
 }
 

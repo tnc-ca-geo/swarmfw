@@ -58,16 +58,14 @@ class DisplayWrapper: public DisplayWrapperBase {
     void print(char character) { thisDisplay.print(character); };
 
     void printBuffer(char *bfr, size_t len) {
-      Serial.print("DEBUG PRINT BUFFER");
-      if (thisDisplay.getCursorY() > 60) {
-          thisDisplay.clearDisplay();
-          thisDisplay.setCursor(0, 0);
+      if (getCursorY() > 60) {
+          clearDisplay();
+          setCursor(0, 0);
       }
       for (size_t i=0; i<len; i++) {
-        Serial.println(i);
-        thisDisplay.print(bfr[i]);
+        print(bfr[i]);
       }
-      thisDisplay.display();
+      display();
     };
 
     void printBuffer(String string) {

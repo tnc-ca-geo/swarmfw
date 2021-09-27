@@ -38,8 +38,8 @@ void SwarmNode::begin(const unsigned long int timeReportingFrequency) {
   // issue tile reset
   len = tileCommand("$RS", 3, bfr);
   // see on the very bottom of https://github.com/astuder/SwarmTile
-  // UNDOCUMENTED
-  len = tileCommand("$RS dbinit", 10, bfr);
+  // UNDOCUMENTED, implement as a reaction to a certain send status
+  // len = tileCommand("$RS dbinit", 10, bfr);
   // wait for indication that tile is running
   while (true) {
     len = getLine(bfr);

@@ -20,7 +20,7 @@ test(formatMessage) {
   message.timeStamp = 1632506435;
   memcpy(message.type, "SC\0", 3);
   message.channel = 230;
-  memcpy(message.payload, "Test\0", 5); 
+  memcpy(message.payload, "Test\0", 5);
   message.batteryVoltage = 3.5;
   len = helpers.formatMessage(message, bfr);
   assertEqual(static_cast<uint16_t>(len), 34);
@@ -42,13 +42,14 @@ test(formatMessage) {
   }
 }
 
-/* 
+/*
  *  Make sure CV 50 output fits into struct
  */
 test(testFormatCV50) {
   Message message;
   MessageHelpers helpers;
-  char testMessage[] = "0+0+0.000+0+0+0.13+111.3+0.16+19.8+1.50+101.22+0.650+19.7+0.1+1.1+0-0.05+0.12+0.16";
+  char testMessage[] = "0+0+0.000+0+0+0.13+111.3+0.16+19.8+1.50+101.22+0.650"
+    "+19.7+0.1+1.1+0-0.05+0.12+0.16";
   size_t len;
   char bfr[256];
   message.index = 3001;
@@ -60,10 +61,21 @@ test(testFormatCV50) {
   len = helpers.formatMessage(message, bfr);
   assertEqual(static_cast<uint16_t>(len), 110);
   for (size_t i=0; i<len; i++) {
-    assertEqual(bfr[i], 
-      "003001,1632506435,SC,1,0+0+0.000+0+0+0.13+111.3+0.16+19.8+1.50+101.22+0.650+19.7+0.1+1.1+0-0.05+0.12+0.16,0.10"[i]);
+    assertEqual(bfr[i],
+      "003001,1632506435,SC,1,0+0+0.000+0+0+0.13+111.3+0.16+19.8+1.50+101.22"
+      "+0.650+19.7+0.1+1.1+0-0.05+0.12+0.16,0.10"[i]);
   }
 }
+
+test(testNextScheduled) {
+  MessageHelpers helpers;
+  // current time 9/29/2021 17:55:58 GMT
+  unsigned long int res = helpers.getNextScheduled(1632938158, 3600);
+  // nextScheduled time will be 9/29/ 18:00:00 GMT
+  // type explicite to satisfy overloaded assertEqual function
+  unsigned long int expected = 1632938400;
+  assertEqual(res, expected);
+};
 
 void setup() {
   Serial.begin(115200);

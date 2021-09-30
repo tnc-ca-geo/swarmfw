@@ -45,5 +45,13 @@ class MessageHelpers {
       bfr[idx] = ',';
       idx += 1 + sprintf(bfr+idx+1, "%1.2f", message.batteryVoltage);
       return idx;
-    }
+    };
+
+    static unsigned long int getNextScheduled(
+      unsigned long int timeStamp, int interval
+    ) {
+      // cast to double required otherwise intermeduare result will be int
+      // float is not precise enough
+      return static_cast<double>((timeStamp + interval)/interval) * interval;
+    };
 };

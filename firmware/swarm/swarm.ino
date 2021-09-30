@@ -1,15 +1,24 @@
 /*
  * Firmware for SWARM evaluation kit with Adafruit ESP32 Huzzah Feather and
- * SDI-12 sensor (eventually)
+ * SDI-12 sensor
  * 
  * TODOs:
  * - investigate use of modules accross projects
  * 
  * Current goals: 
  * - proof of concept and regular sending of messages
- * - simple as possible
- * - do not wrangle control from the SWARM tile
- * - we can use a very simple synchronous loop for now
+ * - do not wrangle control from SWARM tile
+ * - use simple synchronous loop for now
+ * 
+ * Message format spec:
+ * - index: message # after last restart
+ * - timeStamp: unix epoch
+ * - type:
+ *   - SI, SDI 12 sensor information
+ *   - SC, SDI 12 message obtained with a C! command
+ * - channel: use within message type, e.g. SDI 12 channel 
+ * - payload: use within message type, e.g. SDI 12 message
+ * - batteryVoltage: battery voltage 
  * 
  * Falk Schuetzenmeister, falk.schuetzenmeister@tnc.org
  * September 2021
@@ -17,6 +26,7 @@
  */
 // used for watchdog functionality
 // #include <esp_task_wdt.h>
+
 // my libraries
 #include "src/displayWrapper.h"
 #include "src/serialWrapper.h"
@@ -25,15 +35,13 @@
 #include "src/messages.h"
   
 
-// a wrapper around the display handling
+// Wrapper around the OLED display
 DisplayWrapper dspl = DisplayWrapper();
-// this is the serial interface communicationg with the tile, not the 
-// one for debugging
+// serial interface communicationg with the SWARM tile, NOT for debugging
 SerialWrapper srl = SerialWrapper(&Serial2, 115200);
-// last value indicates dev mode deleting all old messages on restart
-// TODO: set to false for production
+// third arguments indicates dev mode deleting unsent messages on restart
 SwarmNode tile = SwarmNode(&dspl, &srl, true);
-// deals with SDI communication
+// SDI12 communication
 SDI12Measurement measurement = SDI12Measurement();
 // message types and helpers
 MessageHelpers helpers;
@@ -41,16 +49,15 @@ Message message;
 
 // Sending every hour (3600s) meets the monthly included rate of 720 message
 const unsigned long int sendFrequencyInSeconds = 3600;
-// time polling frequency, set on the tile for unsolicitated time messages
-// this determines the precision of the send schedule but also power consumption
+// time polling frequency, set on SWARM tile for unsolicitated time messages
+// determines precision of send schedule but also power consumption
 const unsigned long int tileTimeFrequency = 120;
-// the watchdog reset time should be a multiple of the tileTimeFrequency since it
+// watchdog reset time should be a multiple of the tileTimeFrequency since it
 // is blocking
 const unsigned long int watchDogResetTime = 5 * tileTimeFrequency;
-// index of message since last restart to keep track of restarts by the
-// watchdog
+// index of message since last restart to keep track of restarts
 unsigned long int messageCounter = 0;
-// by setting nextScheduled = 0 sending will start right after restart, schedule
+// by setting nextScheduled = 0 sending will start after restart, schedule
 // will start for the next message, good for testing
 unsigned long int nextScheduled = 0;
 
@@ -61,31 +68,23 @@ float getBatteryVoltage() {
   return analogRead(A13) * 2 * 3.3/4096;
 };
 
-/* 
- * Calculate the next scheduled time (in unix epoch time)
- */
-unsigned long int getNextScheduled(unsigned long int timeStamp, int interval) {
-  return static_cast<int>(
-    static_cast<double>(
-      timeStamp + interval)/static_cast<double>(interval)) * interval;
-};
 
 /*
- * Setup routine
+ * Setup
  */
 void setup() {
   char bfr[255];
   size_t len;
-  // Wait for Serial and hope that it is ready after a second
-  // Keep going if Serial is not available for debugging
+  // Start Serial for debugging, hope it is ready after a second
+  // Keep going if Serial not available
   Serial.begin(115200);
   delay(1000);
   // Initialize display and add some boiler plate
   dspl.begin();
   dspl.printBuffer("SWARM sensor node\n");
   dspl.printBuffer("falk.schuetzenmeister@tnc.org\n");
-  dspl.printBuffer("September 2021\n");
-  delay(5000);
+  dspl.printBuffer("October 2021\n");
+  delay(2000);
   // print sensor information
   dspl.clearDisplay();
   dspl.setCursor(0,0);
@@ -94,12 +93,12 @@ void setup() {
   dspl.printBuffer("\n");
   len = measurement.getInfo(bfr);
   dspl.printBuffer(bfr, len);
-  delay(5000);
+  delay(2000);
   dspl.clearDisplay();
   dspl.setCursor(0, 0);
-  // initialize tile and wait until time has been obtained successfully 
+  // initialize tile and wait until time has been obtained by GPS 
   tile.begin(tileTimeFrequency);
-  // and off we go
+  // off we go
   dspl.printBuffer("\nTILE INIT SUCCESSFUL\n");
 }
 
@@ -114,7 +113,7 @@ void loop() {
     // assemble message
     message.index = messageCounter;   
     message.timeStamp = tileTime;
-    memcpy(message.type, "CS\0", 3);
+    memcpy(message.type, "SC\0", 3);
     message.channel = 0;
     // get measurement from SDI-12 device on address 0
     len = measurement.getPayload('0', message.payload);
@@ -135,7 +134,7 @@ void loop() {
     // send to SWARM tile
     tile.sendMessage(bfr, len);
     // schedule next message
-    nextScheduled = getNextScheduled(tileTime, sendFrequencyInSeconds);
+    nextScheduled = helpers.getNextScheduled(tileTime, sendFrequencyInSeconds);
     // increase counter
     messageCounter++;
   }

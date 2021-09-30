@@ -40,12 +40,13 @@ class DisplayWrapper: public DisplayWrapperBase {
     DisplayWrapper() {};
 
     void begin() {
+      // following commands have not been wrapped yet
       thisDisplay.begin(0x3C, true);
       thisDisplay.setTextSize(1);
       thisDisplay.setTextColor(SH110X_WHITE);
       thisDisplay.setRotation(1);
-      thisDisplay.clearDisplay();
-      thisDisplay.setCursor(0, 0);
+      clearDisplay();
+      setCursor(0, 0);
       lineNumber=0;
     };
 

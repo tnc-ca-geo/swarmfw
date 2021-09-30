@@ -40,6 +40,7 @@ void SwarmNode::begin(const unsigned long int timeReportingFrequency) {
   // see on the very bottom of https://github.com/astuder/SwarmTile
   // UNDOCUMENTED, implement as a reaction to a certain send status
   // len = tileCommand("$RS dbinit", 10, bfr);
+  // solved with FW 1.1.0
   // wait for indication that tile is running
   while (true) {
     len = getLine(bfr);
@@ -73,8 +74,8 @@ size_t SwarmNode::cleanCommand(
   sprintf(hexbfr, "%02x", nmeaChecksum(command, len));
   // don't use \0 terminators
   memcpy(bfr+len+1, hexbfr, 2);
-  memcpy(bfr+len+3, "\n\0", 2);
-  return len + 5;
+  memcpy(bfr+len+3, "\n", 1);
+  return len + 4;
 }
 
 /*
@@ -82,8 +83,6 @@ size_t SwarmNode::cleanCommand(
  *
  *  - very crude solution to the problem of unsolicitated messages and still
  *  prone to weird conditions
- *  - we currently assigning result to an actual buffer which is a waste of
- #  memory but does not really matter in our case
  */
 void SwarmNode::emptySerialBuffer() {
   char bfr[255];
@@ -134,11 +133,10 @@ unsigned long int SwarmNode::getTimeStamp() {
 }
 
 /*
- * Since time reporting works on an unsolicitated basis we need to wait for a
- * time report to sync the loop.
- * This function is blocking and returns time depending on the setting of the
- * reporting frequency which also determines precision and power consumption
- * This function should govern the main loop and the measurement timing
+ * Since time reporting is unsolicitated basis we need to wait for a time report
+ * to sync the loop.
+ * This function is blocking and returns time depending on setting of
+ * reporting frequency which determines precision and power consumption
  */
 unsigned long int SwarmNode::waitForTimeStamp() {
   size_t bfrLen = 0;
@@ -169,7 +167,7 @@ uint8_t SwarmNode::nmeaChecksum(const char *sz, const size_t len) {
 }
 
 /*
- * Parse a line and return whether it contains another
+ * Parse a line and return whether it contains a specific string
  *
  * TODO: There is probably a native command to do that
  * TODO: return integer first position for more functionality
@@ -180,7 +178,9 @@ boolean SwarmNode::parseLine(
 ) {
   boolean ret = false;
   if (searchLen <= len) {
-    for (size_t i=0; i < len-searchLen; i++) {
+    // Note: we need to make sure that two buffers with the same length can be
+    // found, so next loop needs to run at leat once
+    for (size_t i=0; i <= len-searchLen; i++) {
       ret = true;
       for (size_t j=0; j < searchLen; j++) {
         if (searchTerm[j] != line[i+j]) {
@@ -259,18 +259,24 @@ void SwarmNode::sendMessage(const char *message, const size_t len) {
 }
 
 /*
- * Send a command to the tile
+ *  Send a command to SWARM tile
  *
- * - returns the last complete line of the Serial response
- * - we are currently loosing some of the unsolictated messages
- * - we only acknowls
+ *  - returns the response to a command assuming that the first three characters
+ *    of the command match the response pattern
  */
- size_t SwarmNode::tileCommand(const char *command, const size_t len, char *bfr) {
+ size_t SwarmNode::tileCommand(
+   const char *command, const size_t len, char *bfr
+ ) {
    char commandBfr[len+4];
+   size_t retLen = 0;
    cleanCommand(command, len, commandBfr);
    _wrappedDisplayRef->printBuffer(commandBfr, len+4);
    _wrappedSerialRef->write(commandBfr, len+4);
-   return getLine(bfr);
+   do {
+     retLen=getLine(bfr);
+   } while (!parseLine(bfr, 3, commandBfr, 3));
+   _wrappedDisplayRef->printBuffer(bfr, retLen);
+   return retLen;
  }
 
  /*

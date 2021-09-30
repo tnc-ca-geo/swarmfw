@@ -47,11 +47,12 @@ SDI12Measurement measurement = SDI12Measurement();
 MessageHelpers helpers;
 Message message;
 
+
 // Sending every hour (3600s) meets the monthly included rate of 720 message
-const unsigned long int sendFrequencyInSeconds = 3600;
+const unsigned long int sendFrequencyInSeconds = 60; // 3600;
 // time polling frequency, set on SWARM tile for unsolicitated time messages
 // determines precision of send schedule but also power consumption
-const unsigned long int tileTimeFrequency = 120;
+const unsigned long int tileTimeFrequency = 10;
 // watchdog reset time should be a multiple of the tileTimeFrequency since it
 // is blocking
 const unsigned long int watchDogResetTime = 5 * tileTimeFrequency;
@@ -104,7 +105,8 @@ void setup() {
 
 void loop() {
   size_t len;
-  char bfr[192];
+  char bfr[32];
+  char messageBfr[192];
   // control when loop advances, SWARM tile controls timing
   unsigned long tileTime = tile.waitForTimeStamp();
   // send message if scheduled
@@ -121,18 +123,17 @@ void loop() {
     message.payload[len] = 0;
     message.batteryVoltage = getBatteryVoltage();
     // format message for sending
-    len = helpers.formatMessage(message, bfr);
+    len = helpers.formatMessage(message, messageBfr);
     // give some user feedback
-    dspl.clearDisplay();
-    dspl.setCursor(0, 0);
     dspl.printBuffer("SENDING AT ");
-    dspl.print(message.timeStamp);
+    sprintf(bfr, "%d", message.timeStamp);
+    dspl.printBuffer(bfr);
     if (Serial) { 
-      Serial.write(bfr, len);
+      Serial.write(messageBfr, len);
       Serial.println();
     }
     // send to SWARM tile
-    tile.sendMessage(bfr, len);
+    tile.sendMessage(messageBfr, len);
     // schedule next message
     nextScheduled = helpers.getNextScheduled(tileTime, sendFrequencyInSeconds);
     // increase counter

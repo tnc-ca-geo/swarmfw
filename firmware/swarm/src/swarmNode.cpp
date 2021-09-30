@@ -5,6 +5,13 @@
 #include <Adafruit_SH110X.h>
 #include <time.h>
 
+
+// time after which Serial2 is considered inactive and empty
+const unsigned long int READ_TIMEOUT = 100; // ms
+// time after which we don't wait any longer for a command response
+const unsigned long int COMMAND_TIMEOUT = 1000; // ms
+
+
 /*
  *  Constructor
  *
@@ -45,6 +52,7 @@ void SwarmNode::begin(const unsigned long int timeReportingFrequency) {
   while (true) {
     len = getLine(bfr);
     if (len) _wrappedDisplayRef->printBuffer(bfr, len);
+    delay(500);
     if (parseLine(bfr, len, "$TILE BOOT,RUNNING", 18)) break;
   }
   // IF dev=true delete all unsent messages to not use up 720 monthly included
@@ -95,6 +103,7 @@ void SwarmNode::emptySerialBuffer() {
 size_t SwarmNode::getLine(char *bfr) {
   size_t idx = 0;
   char character;
+  unsigned long int startMillis = millis();
   if (_wrappedSerialRef->available()) {
     do {
       character = _wrappedSerialRef->read();
@@ -104,12 +113,12 @@ size_t SwarmNode::getLine(char *bfr) {
       if (character != 255) {
         bfr[idx] = character;
         idx ++;
+        startMillis = millis();
       }
     // return if
     // - EOL
-    // - 255 char has been returned
-    // - when no characters left
-    } while (character != 10 and character != 255 and idx < 256);
+    // - timed out
+    } while (character != 10 and startMillis + READ_TIMEOUT > millis());
   }
   return idx;
 }
@@ -119,7 +128,7 @@ size_t SwarmNode::getLine(char *bfr) {
  */
 int SwarmNode::getTime(char *bfr) {
   size_t len = tileCommand("$DT @", 5, bfr);
-  _wrappedDisplayRef->printBuffer(bfr, len);
+  // _wrappedDisplayRef->printBuffer(bfr, len);
   return len;
 }
 
@@ -146,7 +155,7 @@ unsigned long int SwarmNode::waitForTimeStamp() {
   while (true) {
     bfrLen = getLine(messageBfr);
     // output incoming messages
-    if (bfrLen > 0) _wrappedDisplayRef->printBuffer(messageBfr, bfrLen);
+    // if (bfrLen > 0) _wrappedDisplayRef->shortPrintBuffer(messageBfr, bfrLen);
     // try to interpret as time
     ret = parseTime(messageBfr, bfrLen);
     if (ret > 0) return ret;
@@ -269,13 +278,19 @@ void SwarmNode::sendMessage(const char *message, const size_t len) {
  ) {
    char commandBfr[len+4];
    size_t retLen = 0;
+   unsigned long int startMillis = millis();
    cleanCommand(command, len, commandBfr);
-   _wrappedDisplayRef->printBuffer(commandBfr, len+4);
+   _wrappedDisplayRef->shortPrintBuffer(commandBfr, len+4);
    _wrappedSerialRef->write(commandBfr, len+4);
+   // discard unsolicated messages if they arrive between a command and the
+   // command response
    do {
      retLen=getLine(bfr);
-   } while (!parseLine(bfr, 3, commandBfr, 3));
-   _wrappedDisplayRef->printBuffer(bfr, retLen);
+   } while (
+     !parseLine(bfr, 3, commandBfr, 3) and
+     startMillis + COMMAND_TIMEOUT > millis()
+   );
+   _wrappedDisplayRef->shortPrintBuffer(bfr, retLen);
    return retLen;
  }
 

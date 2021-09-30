@@ -25,6 +25,7 @@ class DisplayWrapperBase {
     virtual void print(char character) {};
     virtual void printBuffer(char *bfr, size_t len) {};
     virtual void printBuffer(String string) {};
+    virtual void shortPrintBuffer(char *bfr, size_t len) {};
     virtual void println(String line) {};
     virtual void setCursor(int x, int y) {};
 };
@@ -67,6 +68,15 @@ class DisplayWrapper: public DisplayWrapperBase {
         print(bfr[i]);
       }
       display();
+    };
+
+    void shortPrintBuffer(char *bfr, size_t len) {
+      if (static_cast<int>(len) > 20) {
+        printBuffer(bfr, 21);
+        if (!bfr[20] != '\n') print('\n');
+      } else {
+        printBuffer(bfr, len);
+      }
     };
 
     void printBuffer(String string) {

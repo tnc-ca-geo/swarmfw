@@ -32,21 +32,21 @@ class SwarmNode {
     SwarmNode(
       DisplayWrapperBase *wrappedDisplayObject,
       SerialWrapperBase *wrappedSerialObject, const boolean dev=true);
-    void begin(const unsigned long int timeReportingFrequency=60);
+    void begin(const unsigned long timeReportingFrequency=60);
     size_t cleanCommand(const char *command, const size_t len, char *bfr);
     void emptySerialBuffer();
     size_t formatMessage(const char *message, const size_t len, char *bfr);
     size_t getLine(char *bfr);
     int getTime(char *bfr);
-    unsigned long int waitForTimeStamp();
-    unsigned long int getTimeStamp();
+    unsigned long waitForTimeStamp();
+    unsigned long getTimeStamp();
     // from https://swarm.space/wp-content/uploads/2021/06/Swarm-Tile-Product-Manual.pdf
     // page 34
     uint8_t nmeaChecksum(const char *sz, const size_t len);
     boolean parseLine(
       const char *line, const size_t len, const char *searchTerm,
       const size_t searchLen);
-    unsigned long int parseTime(const char *timeResponse, const size_t len);
+    unsigned long parseTime(const char *timeResponse, const size_t len);
     void sendMessage(const char *message, const size_t len);
     size_t toHexString(
       const char *inputBuffer, const size_t len, char *bfr);

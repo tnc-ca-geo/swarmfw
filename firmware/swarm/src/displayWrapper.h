@@ -20,6 +20,7 @@ class DisplayWrapperBase {
     virtual ~DisplayWrapperBase() {};
     virtual void begin() {};
     virtual void clearDisplay() {};
+    virtual void resetDisplay() {};
     virtual void display() {};
     virtual int getCursorY() { return 0; };
     virtual void print(char character) {};
@@ -52,6 +53,14 @@ class DisplayWrapper: public DisplayWrapperBase {
     };
 
     void clearDisplay() { thisDisplay.clearDisplay(); };
+
+    /*
+     *  convenience method combining two commands often used together
+     */
+    void resetDisplay() {
+      clearDisplay();
+      setCursor(0, 0);
+    };
 
     void display() { thisDisplay.display(); };
 

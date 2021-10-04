@@ -12,7 +12,7 @@ SDI12Measurement::SDI12Measurement() {
 };
 
 /*
- * Read the SDI-12 buffer (after an command)
+ * Read the SDI-12 buffer (after command)
  */
 size_t SDI12Measurement::readSDI12Buffer(char *bfr) {
   size_t i=0;
@@ -45,6 +45,24 @@ size_t SDI12Measurement::sendSDI12(char *cmd, char *bfr) {
 };
 
 /*
+ * Get a list of available channels in form of a char array since addresses
+ * are 8 byte characters
+ */
+size_t SDI12Measurement::getChannels(char *bfr, const char maxChannel) {
+  int idx = 0;
+  char localBfr[128];
+  for (char i='0'; i<=maxChannel; i++) {
+    // Serial.print(i);
+    if (getInfo(localBfr, i) > 1) {
+      bfr[idx] = i;
+      idx += 1;
+    }
+    if (idx>9) break;
+  }
+  return idx;
+};
+
+/*
  * A simple method to check configuration
  */
 size_t SDI12Measurement::getName(char *bfr) {
@@ -57,8 +75,11 @@ size_t SDI12Measurement::getName(char *bfr) {
 // get sensor information
 // this is currently very simple but should be extended
 // this approach does not work with more than one sensor
-size_t SDI12Measurement::getInfo(char *bfr) {
-  return sendSDI12("?I!", bfr);
+size_t SDI12Measurement::getInfo(char *bfr, char addr) {
+  char commandBfr[4];
+  commandBfr[0] = addr;
+  memcpy(commandBfr+1, "I!\0", 3);
+  return sendSDI12(commandBfr, bfr);
 }
 
 // return payLoad for LoRaWAN messages

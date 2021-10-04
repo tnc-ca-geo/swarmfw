@@ -23,7 +23,13 @@
    public:
      SDI12Measurement();
      void debug();
+     // get name of the measurement method, returns just an identifying
+     // message to identify which measurement class is used
      size_t getName(char *bfr);
-     size_t getInfo(char *bfr);
+     // get info about a sensor at addr; ? means all of them
+     size_t getInfo(char *bfr, const char addr='?');
+     // return available channels/address
+     size_t getChannels(char *bfr, const char maxChannel='9');
+     // read measurements from a channel/address
      size_t getPayload(char addr, char *bfr);
  };

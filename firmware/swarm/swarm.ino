@@ -49,13 +49,16 @@ Message message;
 
 
 // Sending every hour (3600s) meets the monthly included rate of 720 message
-const unsigned long int sendFrequencyInSeconds = 60; // 3600;
+const unsigned long int sendFrequencyInSeconds = 3600;
 // time polling frequency, set on SWARM tile for unsolicitated time messages
 // determines precision of send schedule but also power consumption
 const unsigned long int tileTimeFrequency = 10;
 // watchdog reset time should be a multiple of the tileTimeFrequency since it
 // is blocking
 const unsigned long int watchDogResetTime = 5 * tileTimeFrequency;
+// channels available, testing values '0-z' for now using characters
+char availableChannels[10] = {0};
+int numberOfChannels = 0;
 // index of message since last restart to keep track of restarts
 unsigned long int messageCounter = 0;
 // by setting nextScheduled = 0 sending will start after restart, schedule
@@ -68,7 +71,6 @@ unsigned long int nextScheduled = 0;
 float getBatteryVoltage() {
   return analogRead(A13) * 2 * 3.3/4096;
 };
-
 
 /*
  * Setup
@@ -84,31 +86,45 @@ void setup() {
   dspl.begin();
   dspl.printBuffer("SWARM sensor node\n");
   dspl.printBuffer("falk.schuetzenmeister@tnc.org\n");
-  dspl.printBuffer("October 2021\n");
+  dspl.printBuffer("October 2021");
   delay(2000);
+  dspl.resetDisplay();
+  dspl.printBuffer("Reporting frequency:\n\n");
+  sprintf(bfr, "%d", sendFrequencyInSeconds);
+  dspl.printBuffer(bfr);
+  dspl.printBuffer(" seconds");
+  delay(1000);
   // print sensor information
-  dspl.clearDisplay();
-  dspl.setCursor(0,0);
+  dspl.resetDisplay();
   len = measurement.getName(bfr);
   dspl.printBuffer(bfr, len);
   dspl.printBuffer("\n");
-  len = measurement.getInfo(bfr);
-  dspl.printBuffer(bfr, len);
+  numberOfChannels = measurement.getChannels(availableChannels);
+  sprintf(bfr, "%d", numberOfChannels);
+  dspl.printBuffer(bfr);
+  dspl.printBuffer(" SDI12 channel(s) detected\n");
+  delay(1000);
+  dspl.resetDisplay();
+  for (size_t i=0; i<numberOfChannels; i++) {
+    len = measurement.getInfo(bfr, availableChannels[i]);
+    dspl.print(availableChannels[i]);
+    dspl.print(':');
+    dspl.printBuffer(bfr, len);
+  };
   delay(2000);
-  dspl.clearDisplay();
-  dspl.setCursor(0, 0);
-  // initialize tile and wait until time has been obtained by GPS 
+  dspl.resetDisplay();
+  // initialize tile and wait until time has been obtained by GPS
   tile.begin(tileTimeFrequency);
   // off we go
-  dspl.printBuffer("\nTILE INIT SUCCESSFUL\n");
-}
+  dspl.printBuffer("TILE INIT SUCCESSFUL\n");
+} 
 
 void loop() {
   size_t len;
   char bfr[32];
   char messageBfr[192];
   // control when loop advances, SWARM tile controls timing
-  unsigned long tileTime = tile.waitForTimeStamp();
+  unsigned long int tileTime = tile.waitForTimeStamp();
   // send message if scheduled
   if (tileTime > nextScheduled) {
     message = {0};

@@ -7,9 +7,9 @@
 
 
 // time after which Serial2 is considered inactive and empty
-const unsigned long int READ_TIMEOUT = 100; // ms
+const unsigned long READ_TIMEOUT = 100; // ms
 // time after which we don't wait any longer for a command response
-const unsigned long int COMMAND_TIMEOUT = 1000; // ms
+const unsigned long COMMAND_TIMEOUT = 1000; // ms
 
 
 /*
@@ -36,7 +36,7 @@ SwarmNode::SwarmNode(
  *
  *  NOT INCLUDED IN TESTS
  */
-void SwarmNode::begin(const unsigned long int timeReportingFrequency) {
+void SwarmNode::begin(const unsigned long timeReportingFrequency) {
   // We can limit the buffer size since we exactly know how long the buffers
   // within the begin method will be
   char bfr[128];
@@ -103,7 +103,7 @@ void SwarmNode::emptySerialBuffer() {
 size_t SwarmNode::getLine(char *bfr) {
   size_t idx = 0;
   char character;
-  unsigned long int startMillis = millis();
+  unsigned long startMillis = millis();
   if (_wrappedSerialRef->available()) {
     do {
       character = _wrappedSerialRef->read();
@@ -118,7 +118,7 @@ size_t SwarmNode::getLine(char *bfr) {
     // return if
     // - EOL
     // - timed out
-    } while (character != 10 and startMillis + READ_TIMEOUT > millis());
+    } while (character != 10 && startMillis + READ_TIMEOUT > millis());
   }
   return idx;
 }
@@ -151,7 +151,7 @@ unsigned long int SwarmNode::waitForTimeStamp() {
   size_t bfrLen = 0;
   char messageBfr[256];
   // we need to keep that for a check
-  unsigned long int ret = 0;
+  unsigned long ret = 0;
   while (true) {
     bfrLen = getLine(messageBfr);
     // output incoming messages
@@ -278,7 +278,7 @@ void SwarmNode::sendMessage(const char *message, const size_t len) {
  ) {
    char commandBfr[len+4];
    size_t retLen = 0;
-   unsigned long int startMillis = millis();
+   unsigned long startMillis = millis();
    cleanCommand(command, len, commandBfr);
    _wrappedDisplayRef->shortPrintBuffer(commandBfr, len+4);
    _wrappedSerialRef->write(commandBfr, len+4);
@@ -287,8 +287,8 @@ void SwarmNode::sendMessage(const char *message, const size_t len) {
    do {
      retLen=getLine(bfr);
    } while (
-     !parseLine(bfr, 3, commandBfr, 3) and
-     startMillis + COMMAND_TIMEOUT > millis()
+     !parseLine(bfr, 3, commandBfr, 3)
+     && startMillis + COMMAND_TIMEOUT > millis()
    );
    _wrappedDisplayRef->shortPrintBuffer(bfr, retLen);
    return retLen;

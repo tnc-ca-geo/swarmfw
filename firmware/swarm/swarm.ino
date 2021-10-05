@@ -16,9 +16,12 @@
  * - type:
  *   - SI, SDI 12 sensor information
  *   - SC, SDI 12 message obtained with a C! command
- * - channel: use within message type, e.g. SDI 12 channel 
- * - payload: use within message type, e.g. SDI 12 message
  * - batteryVoltage: battery voltage 
+ * - array of up to 5
+ *    - channel: use within message type, e.g. SDI 12 channel 
+ *    - payload: use within message type, e.g. SDI 12 message
+ *  
+ * Entire message must fit into 192 characters
  * 
  * Falk Schuetzenmeister, falk.schuetzenmeister@tnc.org
  * September 2021
@@ -33,7 +36,8 @@
 #include "src/swarmNode.h"
 #include "src/sdi12Wrapper.h"
 #include "src/messages.h"
-  
+
+#define BATTERY_PIN A13
 
 // Wrapper around the OLED display
 DisplayWrapper dspl = DisplayWrapper();
@@ -45,7 +49,6 @@ SwarmNode tile = SwarmNode(&dspl, &srl, true);
 SDI12Measurement measurement = SDI12Measurement();
 // message types and helpers
 MessageHelpers helpers;
-Message message;
 
 
 // Sending every hour (3600s) meets the monthly included rate of 720 message
@@ -60,7 +63,7 @@ const unsigned long int watchDogResetTime = 5 * tileTimeFrequency;
 char availableChannels[10] = {0};
 int numberOfChannels = 0;
 // index of message since last restart to keep track of restarts
-unsigned long int messageCounter = 0;
+int messageCounter = 0;
 // by setting nextScheduled = 0 sending will start after restart, schedule
 // will start for the next message, good for testing
 unsigned long int nextScheduled = 0;
@@ -69,30 +72,55 @@ unsigned long int nextScheduled = 0;
  *  Measure battery/system voltage Adafruit Feather HUZZAH
  */
 float getBatteryVoltage() {
-  return analogRead(A13) * 2 * 3.3/4096;
+  return analogRead(BATTERY_PIN) * 2 * 3.3/4096;
 };
 
 /*
- * Setup
+ *  Collect data and construct message
+ */
+size_t getMessage(char *bfr, int idx, unsigned long tme) {
+  Message message = {0};
+  size_t len = 0;
+  // message index
+  message.index = idx;   
+  // time
+  message.timeStamp = tme;
+   // get battery voltage
+  message.batteryVoltage = getBatteryVoltage();
+  // message type
+  memcpy(message.type, "SC\0", 3);
+  // payloads
+  message.payloads[0].channel = 48;
+  // get measurement from SDI-12 device on address '0'/48
+  len = measurement.getPayload(48, message.payloads[0].payload);
+  // format message for sending
+  return helpers.formatMessage(message, bfr);
+}
+
+/*
+ *  Deal with incoming messages
+ */
+void processIncoming() {};
+
+/*
+ *  Setup
  */
 void setup() {
+  // use these as needed
   char bfr[255];
   size_t len;
   // Start Serial for debugging, hope it is ready after a second
   // Keep going if Serial not available
   Serial.begin(115200);
-  delay(1000);
   // Initialize display and add some boiler plate
   dspl.begin();
-  dspl.printBuffer("SWARM sensor node\n");
-  dspl.printBuffer("falk.schuetzenmeister@tnc.org\n");
-  dspl.printBuffer("October 2021");
+  dspl.printBuffer(
+    "SWARM sensor node\nfalk.schuetzenmeister@tnc.org\nOctober 2021");
   delay(2000);
   dspl.resetDisplay();
-  dspl.printBuffer("Reporting frequency:\n\n");
-  sprintf(bfr, "%d", sendFrequencyInSeconds);
+  sprintf(
+    bfr, "Reporting frequency:\n\n%d seconds", sendFrequencyInSeconds);
   dspl.printBuffer(bfr);
-  dspl.printBuffer(" seconds");
   delay(1000);
   // print sensor information
   dspl.resetDisplay();
@@ -100,9 +128,8 @@ void setup() {
   dspl.printBuffer(bfr, len);
   dspl.printBuffer("\n");
   numberOfChannels = measurement.getChannels(availableChannels);
-  sprintf(bfr, "%d", numberOfChannels);
+  sprintf(bfr, "%d SDI12 channel(s) detected\n", numberOfChannels);
   dspl.printBuffer(bfr);
-  dspl.printBuffer(" SDI12 channel(s) detected\n");
   delay(1000);
   dspl.resetDisplay();
   for (size_t i=0; i<numberOfChannels; i++) {
@@ -117,7 +144,10 @@ void setup() {
   tile.begin(tileTimeFrequency);
   // off we go
   dspl.printBuffer("TILE INIT SUCCESSFUL\n");
+  Serial.write(availableChannels, 10);
+  Serial.println();
 } 
+
 
 void loop() {
   size_t len;
@@ -125,24 +155,16 @@ void loop() {
   char messageBfr[192];
   // control when loop advances, SWARM tile controls timing
   unsigned long int tileTime = tile.waitForTimeStamp();
-  // send message if scheduled
+  /* 
+   *  1. process incoming messages
+   */
+  processIncoming();
+  /* 
+   *  2. send messages according schedule
+   */
   if (tileTime > nextScheduled) {
-    message = {0};
-    // assemble message
-    message.index = messageCounter;   
-    message.timeStamp = tileTime;
-    memcpy(message.type, "SC\0", 3);
-    message.channel = 0;
-    // get measurement from SDI-12 device on address 0
-    len = measurement.getPayload('0', message.payload);
-    // make sure message is \0 terminated
-    message.payload[len] = 0;
-    message.batteryVoltage = getBatteryVoltage();
-    // format message for sending
-    len = helpers.formatMessage(message, messageBfr);
-    // give some user feedback
-    dspl.printBuffer("SENDING AT ");
-    sprintf(bfr, "%d", message.timeStamp);
+    len = getMessage(messageBfr, messageCounter, tileTime);
+    sprintf(bfr, "SENDING AT %d", tileTime);
     dspl.printBuffer(bfr);
     if (Serial) { 
       Serial.write(messageBfr, len);
@@ -155,4 +177,7 @@ void loop() {
     // increase counter
     messageCounter++;
   }
+  /* 
+   *  3. power management
+   */
 }

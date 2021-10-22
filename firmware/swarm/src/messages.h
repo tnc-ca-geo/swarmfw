@@ -19,9 +19,9 @@ typedef struct {
 typedef struct {
   // commas will take 5 of 192 characters
   // a message index, will take 6 of 192 characters
-  unsigned long int index;
+  unsigned long index;
   // a timeStamp (UNIX epoch), will take 10 of 192 characters
-  unsigned long int timeStamp;
+  unsigned long timeStamp;
   // batteryVoltage, will take 4 of 192 characters
   float batteryVoltage;
   // a two letter code for message type, will take 2 of 192 characters
@@ -67,8 +67,8 @@ class MessageHelpers {
       return idx;
     };
 
-    static unsigned long int getNextScheduled(
-      unsigned long int timeStamp, int interval
+    static unsigned long getNextScheduled(
+      unsigned long timeStamp, unsigned long interval
     ) {
       // cast to double required otherwise intermeduare result will be int
       // float is not precise enough

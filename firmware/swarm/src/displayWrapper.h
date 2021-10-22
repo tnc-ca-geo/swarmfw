@@ -14,21 +14,30 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_SH110X.h>
 
+// this varies on different Feather boards see example code
+#define BUTTON_A 15
+#define BUTTON_B 32
+#define BUTTON_C 14
+
 // add base class for mocking and testing
 class DisplayWrapperBase {
   public:
     virtual ~DisplayWrapperBase() {};
     virtual void begin() {};
+    virtual boolean button(int button) { return false; };
+    virtual boolean buttonDebounced(int button) { return false; };
     virtual void clearDisplay() {};
-    virtual void resetDisplay() {};
     virtual void display() {};
     virtual int getCursorY() { return 0; };
     virtual void print(char character) {};
     virtual void printBuffer(char *bfr, size_t len) {};
     virtual void printBuffer(String string) {};
+    virtual void setTextColor(uint16_t textcolor);
     virtual void shortPrintBuffer(char *bfr, size_t len) {};
     virtual void println(String line) {};
+    virtual void resetDisplay() {};
     virtual void setCursor(int x, int y) {};
+    virtual void write(char c) {};
 };
 
 class DisplayWrapper: public DisplayWrapperBase {
@@ -37,36 +46,61 @@ class DisplayWrapper: public DisplayWrapperBase {
     // buffer and lineNumber for later implementation of scrolling
     // display, UNUSED for now
     char displayBuffer[20][7];
+    unsigned long buttonDownTime;
     int lineNumber;
+    // keep track whether button has been released;
+    boolean buttonState[32] = { true };
   public:
-    DisplayWrapper() {};
+    DisplayWrapper() {
+      pinMode(BUTTON_A, INPUT_PULLUP);
+      pinMode(BUTTON_B, INPUT_PULLUP);
+      pinMode(BUTTON_C, INPUT_PULLUP);
+    };
 
     void begin() {
       // following commands have not been wrapped yet
       thisDisplay.begin(0x3C, true);
       thisDisplay.setTextSize(1);
-      thisDisplay.setTextColor(SH110X_WHITE);
+      setTextColor(SH110X_WHITE);
       thisDisplay.setRotation(1);
       clearDisplay();
       setCursor(0, 0);
       lineNumber=0;
     };
 
-    void clearDisplay() { thisDisplay.clearDisplay(); };
-
-    /*
-     *  convenience method combining two commands often used together
-     */
-    void resetDisplay() {
-      clearDisplay();
-      setCursor(0, 0);
+    // read button A
+    boolean button(int bttn) {
+      return !digitalRead(bttn);
     };
+
+    // check for release (or 1s time passed) and read button
+    boolean buttonDebounced(int bttn) {
+      boolean ret = !digitalRead(bttn);
+      if (!buttonState[bttn]) {
+        buttonState[bttn] = ret;
+        if (ret) buttonDownTime = millis();
+      } else {
+        buttonState[bttn] = ret;
+        if (buttonDownTime + 1000 > millis()) {
+          ret = false;
+        }
+      }
+      return ret;
+    };
+
+    void clearDisplay() { thisDisplay.clearDisplay(); };
 
     void display() { thisDisplay.display(); };
 
     int getCursorY() { return thisDisplay.getCursorY(); };
 
     void print(char character) { thisDisplay.print(character); };
+
+    void print(int number, int format=DEC) {
+      thisDisplay.print(number, format);
+    };
+
+    void println(String line) { thisDisplay.println(line); };
 
     void printBuffer(char *bfr, size_t len) {
       if (getCursorY() > 60) {
@@ -101,7 +135,19 @@ class DisplayWrapper: public DisplayWrapperBase {
       printBuffer(bfr, len);
     };
 
-    void println(String line) { thisDisplay.println(line); };
+    /*
+     *  convenience method combining two commands often used together
+     */
+    void resetDisplay() {
+      clearDisplay();
+      setCursor(0, 0);
+    };
 
     void setCursor(int x, int y) { thisDisplay.setCursor(x, y); };
+
+    void setTextColor(uint16_t textcolor) {
+      thisDisplay.setTextColor(textcolor);
+    };
+
+    void write(char c) { thisDisplay.write(c); };
 };

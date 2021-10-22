@@ -2,6 +2,7 @@
  *  Wrapping the SDI12 Arduino library
  *
  */
+
  #ifndef _SDI12_WRAPPER_H_
  #define _SDI12_WRAPPER_H_
  #endif
@@ -32,4 +33,6 @@
      size_t getChannels(char *bfr, const char maxChannel='9');
      // read measurements from a channel/address
      size_t getPayload(char addr, char *bfr);
+     // update channel, return success 1 or failure 0
+     boolean setChannel(char oldAddr, char newAddr);
  };

@@ -9,7 +9,7 @@
 // time after which Serial2 is considered inactive and empty
 const unsigned long READ_TIMEOUT = 100; // ms
 // time after which we don't wait any longer for a command response
-const unsigned long COMMAND_TIMEOUT = 1000; // ms
+const unsigned long COMMAND_TIMEOUT = 5000; // ms
 
 
 /*
@@ -39,7 +39,7 @@ SwarmNode::SwarmNode(
 void SwarmNode::begin(const unsigned long timeReportingFrequency) {
   // We can limit the buffer size since we exactly know how long the buffers
   // within the begin method will be
-  char bfr[128];
+  char bfr[256];
   char timeFrequencyBfr[16];
   size_t len=0;
   // issue tile reset
@@ -93,7 +93,7 @@ size_t SwarmNode::cleanCommand(
  *  prone to weird conditions
  */
 void SwarmNode::emptySerialBuffer() {
-  char bfr[255];
+  char bfr[256];
   while (getLine(bfr) > 0);
 }
 
@@ -118,7 +118,8 @@ size_t SwarmNode::getLine(char *bfr) {
     // return if
     // - EOL
     // - timed out
-    } while (character != 10 && startMillis + READ_TIMEOUT > millis());
+    // - terminate also after 255 characters
+    } while (character != 10 && startMillis + READ_TIMEOUT > millis() && idx < 255);
   }
   return idx;
 }
@@ -285,7 +286,7 @@ void SwarmNode::sendMessage(const char *message, const size_t len) {
    // discard unsolicated messages if they arrive between a command and the
    // command response
    do {
-     retLen=getLine(bfr);
+     retLen = getLine(bfr);
    } while (
      !parseLine(bfr, 3, commandBfr, 3)
      && startMillis + COMMAND_TIMEOUT > millis()

@@ -104,6 +104,7 @@ size_t SDI12Measurement::getPayload(char addr, char *bfr) {
   for (char i=48; i<56; i++) {
     char cmd[] = {addr, 'D', i, '!', 0};
     len = sendSDI12(cmd, rspns);
+    // Serial.write(rspns, len);
     memcpy(bfr+resIndex, rspns+1, len);
     // the response is \0 terminated but we want to concatenate those returns
     // for this reason we override the last character of the prior copy
@@ -113,6 +114,22 @@ size_t SDI12Measurement::getPayload(char addr, char *bfr) {
   resIndex + 1;
   return resIndex;
 }
+
+/*
+ * change sensor channel, success (true), false if channel already taken or
+ * not confirmed
+ */
+boolean SDI12Measurement::setChannel(char oldAddr, char newAddr) {
+  boolean ret = 0;
+  char cmd[] = {oldAddr, 'A', newAddr, '!'};
+  char bfr[128];
+  size_t len = getInfo(bfr, newAddr);
+  if (len == 0) {
+    sendSDI12(cmd, bfr);
+    if (bfr[0] = newAddr) ret = 1;
+  }
+  return ret;
+};
 
 /*
  * Use this for debugging

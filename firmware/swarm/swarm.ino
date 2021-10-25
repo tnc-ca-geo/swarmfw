@@ -1,29 +1,29 @@
 /*
  * Firmware for SWARM evaluation kit with Adafruit ESP32 Huzzah Feather and
  * SDI-12 sensor
- * 
+ *
  * TODOs:
  * - investigate use of modules accross different projects
- * 
- * Current goals: 
+ *
+ * Current goals:
  * - do not wrangle control from SWARM tile
  * - use simple synchronous loop for now
- * 
+ *
  * Message format spec:
  * - index: message # after last restart
  * - timeStamp: unix epoch
  * - type:
  *   - SI, SDI 12 sensor information
  *   - SC, SDI 12 message obtained with a C! command
- * - batteryVoltage: battery voltage 
+ * - batteryVoltage: battery voltage
  * - array of up to 5
- *    - channel: use within message type, e.g. SDI 12 channel 
+ *    - channel: use within message type, e.g. SDI 12 channel
  *    - payload: use within message type, e.g. SDI 12 message
- *  
+ *
  * Entire message must fit into 192 characters
- * 
+ *
  * Pins used (TODO: Complete!)
- * 
+ *
  *  13   battery Voltage measurement (used)
  *  14   BUTTON C (used)
  *  15   BUTTON A (used)
@@ -31,13 +31,13 @@
  *  17   SWARM connection, TX (used)
  *  21   SDI data (used)
  *  32   BUTTON B (used)
- * 
+ *
  * Falk Schuetzenmeister, falk.schuetzenmeister@tnc.org
  * October 2021
- * 
+ *
  */
 // used for watchdog functionality
-// esp32 seems to have a good default watchdog functionality 
+// esp32 seems to have a good default watchdog functionality
 // TODO: explore further
 // #include <esp_task_wdt.h>
 #include <WiFi.h>
@@ -53,7 +53,7 @@
 #include "src/setup.h"
 
 #define BATTERY_PIN A13
-#define uS_TO_S_FACTOR 1000000  // Conversion factor for micro seconds to seconds       
+#define uS_TO_S_FACTOR 1000000  // Conversion factor for micro seconds to seconds
 #define DEFAULT_SEND_FREQUENCY 3600 // use an hour as default
 
 // Wrapper around the OLED display
@@ -96,7 +96,7 @@ float getBatteryVoltage() {
 }
 
 /*
- * Wait for button for maximal ms. 
+ * Wait for button for maximal ms.
  */
 boolean waitForButtonA(DisplayWrapper &dspl, unsigned long ms) {
   unsigned long start = millis();
@@ -119,7 +119,7 @@ size_t getMessage(
   Message message = {0};
   size_t len = 0;
   // message index
-  message.index = idx;   
+  message.index = idx;
   // time
   message.timeStamp = tme;
    // get battery voltage
@@ -129,12 +129,14 @@ size_t getMessage(
   // payloads, read only the first five channels
   for (size_t i=0; i<5; i++) {
     char channel = availableChannels[i];
+    Serial.println(channel);
     if (channel == 0) break;
     message.payloads[i].channel = channel;
     // get measurement from SDI-12 device on address channel
-    len = measurement.getPayload(channel, message.payloads[i].payload);
+    len = measurement.getPayload(message.payloads[i].payload, channel);
+    Serial.write(message.payloads[i].payload, len);
   }
-  // format message for sending 
+  // format message for sending
   return helpers.formatMessage(message, bfr);
 }
 
@@ -151,9 +153,9 @@ void setup() {
   char bfr[255];
   size_t len;
   // We doon't use Wifi or Bluetooth, might save a lot of power
-  esp_wifi_set_mode(WIFI_MODE_NULL);  
+  esp_wifi_set_mode(WIFI_MODE_NULL);
   btStop();
-  // Serial.begin(115200);
+  Serial.begin(115200);
   // Initialize display and add some boiler plate
   dspl.begin();
   dspl.printBuffer(
@@ -216,11 +218,11 @@ void loop() {
   char messageBfr[192];
   // control when loop advances, SWARM tile controls timing
   unsigned long tileTime = tile.waitForTimeStamp();
-  /* 
+  /*
    *  1. check and process incoming messages
    */
   processIncoming();
-  /* 
+  /*
    *  2. send messages according schedule
    */
   if (tileTime > nextScheduled) {
@@ -234,7 +236,7 @@ void loop() {
     // increase counter
     messageCounter++;
   }
-  /* 
+  /*
    *  3. power management
    */
    // len = sprintf(commandBfr, "$SL S=%d", tileTimeFrequency);

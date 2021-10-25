@@ -12,6 +12,17 @@ SDI12Measurement::SDI12Measurement() {
 };
 
 /*
+ *  count Values in a partial aD! response
+ */
+uint16_t SDI12Measurement::countValues(char *bfr, size_t len) {
+  uint16_t ret = 0;
+  for(size_t i=0; i<len; i++) {
+    if (bfr[i] == '+' or bfr[i] == '-') ret++;
+  }
+  return ret;
+}
+
+/*
  * Read the SDI-12 buffer (after command)
  */
 size_t SDI12Measurement::readSDI12Buffer(char *bfr) {
@@ -70,7 +81,7 @@ size_t SDI12Measurement::getName(char *bfr) {
   size_t len = sizeof(retString);
   memcpy(bfr, retString, len);
   return(len);
-};
+}
 
 // get sensor information
 // this is currently very simple but should be extended
@@ -82,25 +93,40 @@ size_t SDI12Measurement::getInfo(char *bfr, char addr) {
   return sendSDI12(commandBfr, bfr);
 }
 
+/*
+ *  Parse the sensor response after sending a command
+ *
+ *  - Response format address (1 byte), wait time in ms (3 byte),
+ *  number of values (2 byte), represented as text
+ */
+void SDI12Measurement::parseResponse(char *response, size_t len) {
+  char bfr[4];
+  lastSensor = response[0];
+  // read in the order of length, so that we always /0 terminated
+  memcpy(bfr, response+4, 2);
+  numberOfValues = atoi((char*) bfr);
+  memcpy(bfr, response+1, 3);
+  waitTime = atoi((char*) bfr);
+  startWaitTime = millis();
+}
+
 // return payLoad for LoRaWAN messages
-size_t SDI12Measurement::getPayload(char addr, char *bfr) {
+size_t SDI12Measurement::getPayload(char *bfr, char addr) {
   char cmd[] = {addr, 'C', '!', 0, 0};
   char parseBuffer[4];
   char rspns[SDI12_BUFFER_SIZE];
   size_t len = 0;
   len = sendSDI12(cmd, rspns);
-  // extract wait time from response
-  memcpy(parseBuffer, rspns+1, 3);
-  int wait = atoi((char*) parseBuffer);
-  // waiting for results
-  unsigned long int timerStart = millis();
-  while ((millis() - timerStart) < (1000 * wait)) {}
+  parseResponse(rspns, len);
+  // blocking
+  while ((millis() - startWaitTime) < (1000 * waitTime));
   // start response string with the address byte
   bfr[0] = addr;
   size_t resIndex = 1;
   // request results
   // - iterate through ASCII code, representing 0..9 and
   // - issue commands x0D0! to x0D9!
+  valuesReceived = 0;
   for (char i=48; i<56; i++) {
     char cmd[] = {addr, 'D', i, '!', 0};
     len = sendSDI12(cmd, rspns);
@@ -109,6 +135,9 @@ size_t SDI12Measurement::getPayload(char addr, char *bfr) {
     // the response is \0 terminated but we want to concatenate those returns
     // for this reason we override the last character of the prior copy
     resIndex += len-1;
+    // check whether we got all the values
+    valuesReceived += countValues(rspns, len);
+    if (valuesReceived >= numberOfValues) break;
   }
   // however we would like to maintain one \0 at the end
   resIndex + 1;
@@ -129,7 +158,7 @@ boolean SDI12Measurement::setChannel(char oldAddr, char newAddr) {
     if (bfr[0] = newAddr) ret = 1;
   }
   return ret;
-};
+}
 
 /*
  * Use this for debugging
@@ -143,7 +172,7 @@ void SDI12Measurement::debug() {
     Serial.println(bfr);
     len = getInfo(bfr);
     Serial.println(bfr);
-    len = getPayload('0', bfr);
+    len = getPayload(bfr);
     Serial.println(bfr);
   }
 }

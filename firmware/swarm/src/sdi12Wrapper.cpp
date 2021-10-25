@@ -63,7 +63,6 @@ size_t SDI12Measurement::getChannels(char *bfr, const char maxChannel) {
   int idx = 0;
   char localBfr[128];
   for (char i='0'; i<=maxChannel; i++) {
-    // Serial.print(i);
     if (getInfo(localBfr, i) > 1) {
       bfr[idx] = i;
       idx += 1;
@@ -106,20 +105,20 @@ void SDI12Measurement::parseResponse(char *response, size_t len) {
   memcpy(bfr, response+4, 2);
   numberOfValues = atoi((char*) bfr);
   memcpy(bfr, response+1, 3);
-  waitTime = atoi((char*) bfr);
+  // this can probably be reduced to one variable
+  waitTime = strtoul((char*) bfr, NULL, 10);
   startWaitTime = millis();
 }
 
 // return payLoad for LoRaWAN messages
 size_t SDI12Measurement::getPayload(char *bfr, char addr) {
   char cmd[] = {addr, 'C', '!', 0, 0};
-  char parseBuffer[4];
   char rspns[SDI12_BUFFER_SIZE];
   size_t len = 0;
   len = sendSDI12(cmd, rspns);
   parseResponse(rspns, len);
   // blocking
-  while ((millis() - startWaitTime) < (1000 * waitTime));
+  while (startWaitTime + (1000 * waitTime) > millis()) {};
   // start response string with the address byte
   bfr[0] = addr;
   size_t resIndex = 1;
@@ -130,7 +129,6 @@ size_t SDI12Measurement::getPayload(char *bfr, char addr) {
   for (char i=48; i<56; i++) {
     char cmd[] = {addr, 'D', i, '!', 0};
     len = sendSDI12(cmd, rspns);
-    // Serial.write(rspns, len);
     memcpy(bfr+resIndex, rspns+1, len);
     // the response is \0 terminated but we want to concatenate those returns
     // for this reason we override the last character of the prior copy

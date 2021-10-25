@@ -27,7 +27,7 @@
      uint16_t numberOfValues;
      uint16_t valuesReceived;
      uint16_t waitTime;
-     uint16_t startWaitTime;
+     unsigned long startWaitTime;
      SDI12Measurement();
      void debug();
      // count values in a response string obtained with the aD! command

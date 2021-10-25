@@ -34,7 +34,13 @@ test(countValues) {
  */
 test(testChannel) {
   char bfr[256];
-  size_t len = sdi12.getPayload(bfr, '5');
+  size_t len = sdi12.getPayload(bfr, '3');
+  Serial.write(bfr, len);
+  Serial.println();
+  len = sdi12.getPayload(bfr, '4');
+  Serial.write(bfr, len);
+  Serial.println();
+  len = sdi12.getPayload(bfr, '5');
   Serial.write(bfr, len);
   Serial.println();
   //Serial.write(bfr, len);

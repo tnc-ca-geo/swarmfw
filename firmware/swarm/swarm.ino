@@ -129,12 +129,17 @@ size_t getMessage(
   // payloads, read only the first five channels
   for (size_t i=0; i<5; i++) {
     char channel = availableChannels[i];
-    Serial.println(channel);
     if (channel == 0) break;
+    // Serial.print("DEBUG: ");
+    // Serial.print(channel);
+    // Serial.print(", ");
     message.payloads[i].channel = channel;
     // get measurement from SDI-12 device on address channel
     len = measurement.getPayload(message.payloads[i].payload, channel);
-    Serial.write(message.payloads[i].payload, len);
+    // Serial.print(len);
+    // Serial.print(", ");
+    // Serial.write(message.payloads[i].payload, len);
+    // Serial.println();
   }
   // format message for sending
   return helpers.formatMessage(message, bfr);
@@ -227,6 +232,8 @@ void loop() {
    */
   if (tileTime > nextScheduled) {
     len = getMessage(messageBfr, availableChannels, messageCounter, tileTime);
+    Serial.write(messageBfr, len);
+    Serial.println();
     sprintf(bfr, "SENDING AT %d", tileTime);
     dspl.printBuffer(bfr);
     // send to SWARM tile

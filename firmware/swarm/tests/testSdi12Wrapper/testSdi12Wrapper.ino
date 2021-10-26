@@ -23,9 +23,7 @@ test(parseResponse) {
 
 test(countValues) {
   char example[16];
-  memcpy(example, "3+1+1+2-1+6.677", 15);
-  assert(sdi12.countValues(example, 15) == 5);
-  memcpy(example, "+1+1+2-1+6.677", 14);
+  memcpy(example, "+1+1+2-1+6.677", 15);
   assert(sdi12.countValues(example, 15) == 5);
 }
 
@@ -46,12 +44,44 @@ test(testChannel) {
   //Serial.write(bfr, len);
 }
 
+// this is highly hardware dependent
+test(nonBlockingSend) {
+  sdi12.nonBlockingSend("5C!", 3);
+  while (!sdi12.responseReady) {
+    sdi12.loop_once();
+  }
+  Serial.write(sdi12.responseBfr, sdi12.responseBfrIdx);
+}
+
+/* 
+ *  Test non-existent sensor query bailout
+ */
+test(takeMeasurementFail) {
+  sdi12.takeMeasurement('k');
+  while (!sdi12.measurementReady) {
+    sdi12.loop_once(); 
+  }
+  Serial.print("RESULT: ");
+  Serial.write(sdi12.measurementBfr, sdi12.measurementBfrIdx);
+  Serial.println();
+}
+
+test(takeMeasurement) {
+  sdi12.takeMeasurement('3');
+  while (!sdi12.measurementReady) {
+    sdi12.loop_once(); 
+  }
+  Serial.print("RESULT: ");
+  Serial.write(sdi12.measurementBfr, sdi12.measurementBfrIdx);
+  Serial.println();
+}
 void setup() {
   Serial.begin(115200);
   delay(500);
   while(!Serial);
-  // TestRunner::exclude("*");
-  // TestRunner::include("emptySerialBuffer");
+  TestRunner::exclude("*");
+  TestRunner::include("takeMeasurement");
+  TestRunner::include("takeMeasurementFail");
 }
 
 void loop() {

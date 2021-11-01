@@ -98,21 +98,18 @@ size_t SDI12Measurement::getInfo(char *bfr, char addr) {
  *
  *  - Response format address (1 byte), wait time in ms (3 byte),
  *  number of values (2 byte), represented as text
+ *  - add error handling
  */
 void SDI12Measurement::parseResponse(char *response, size_t len) {
   char bfr[4];
-  lastSensor = response[0];
-  // read in the order of length, so that we always /0 terminated
+  // read in order of length, so that we always get /0 terminated
   memcpy(bfr, response+4, 2);
   numberOfValues = atoi((char*) bfr);
   memcpy(bfr, response+1, 3);
-  // this can probably be reduced to one variable
-  waitTime = strtoul((char*) bfr, NULL, 10);
-  startWaitTime = millis();
-  retrievalTime = millis() + waitTime * 1000;
+  retrievalTime = millis() + strtoul((char*) bfr, NULL, 10) * 1000;
 }
 
-// return payLoad for LoRaWAN messages
+// return payLoad
 size_t SDI12Measurement::getPayload(char *bfr, char addr) {
   char cmd[] = {addr, 'C', '!', 0, 0};
   char rspns[SDI12_BUFFER_SIZE];
@@ -166,6 +163,7 @@ boolean SDI12Measurement::setChannel(char oldAddr, char newAddr) {
  */
 void SDI12Measurement::nonBlockingSend(char *cmd, size_t len) {
   memcpy(command, cmd, len);
+  memset(responseBfr, 0, 256);
   responseReady = false;
 }
 
@@ -176,32 +174,40 @@ void SDI12Measurement::takeMeasurement(char channel) {
   measureSensor = channel;
   measurementStep = 1;
   measurementReady = false;
+  memset(measurementBfr, 0, 256);
 }
 
+/*
+ *  This is a non-blocking process loop
+ *
+ #  - use scheduler
+ *  - abstract into events
+ */
 void SDI12Measurement::loop_once() {
-  // abstract into events and scheduler
   unsigned long time = millis();
+
   if (measurementStep == 1) {
-    memset(measurementBfr, 0, 256);
-    measurementBfrIdx = 0;
     char command[] = { measureSensor, 'C', '!' };
     nonBlockingSend(command, sizeof(command));
     measurementStep = 2;
   }
+
   if (measurementStep == 2 && responseReady) {
     parseResponse(responseBfr, strlen(responseBfr));
     measurementStep = 3;
   }
+
   if (measurementStep > 2 && time > retrievalTime && !waitForRetrieval) {
     char command[] = { measureSensor, 'D', measurementStep + 45, '!'};
     nonBlockingSend(command, sizeof(command));
     waitForRetrieval = true;
   }
+
   if (measurementStep > 2 && waitForRetrieval && responseReady) {
     if (strlen(responseBfr) > 2) {
       memcpy(
-        measurementBfr+measurementBfrIdx, responseBfr+1, strlen(responseBfr)-2);
-      measurementBfrIdx += strlen(responseBfr)-2;
+        measurementBfr+strlen(measurementBfr), responseBfr+1,
+        strlen(responseBfr)-2);
       valuesReceived += countValues(responseBfr, strlen(responseBfr));
       if (valuesReceived >= numberOfValues) {
         measurementReady = true;
@@ -214,34 +220,33 @@ void SDI12Measurement::loop_once() {
     waitForRetrieval = false;
     measurementStep++;
   }
+
   if (command[0] != 0) {
     mySDI12.clearBuffer();
     sendCommandTime = time + 300;
   }
+
   if (command[0] != 0 && sendCommandTime > time) {
     mySDI12.sendCommand((char*) command);
     waitForResponse = true;
     memset(command, 0, 8);
-    memset(responseBfr, 0, 256);
   }
+
   if (waitForResponse) {
-    //Serial.println("wait");
     if (mySDI12.available()) {
       char c = mySDI12.read();
-      if (c!=0) {
-        responseBfr[strlen(responseBfr)] = c;
-        // responseBfrIdx++;
-      }
+      if (c!=0) responseBfr[strlen(responseBfr)] = c;
       if (c=='\n') {
         responseReady = true;
         waitForResponse = false;
       }
     }
   }
+
   /*
-   * Bailing out after one second
+   * Bailing out after 5 seconds
    */
-  if (millis() > sendCommandTime + 1000) {
+  if (millis() > sendCommandTime + 5000) {
     waitForResponse = false;
     responseReady = true;
   }

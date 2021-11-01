@@ -23,23 +23,18 @@
      size_t sendSDI12(char *cmd, char *bfr);
    public:
      // state variables
-     char lastSensor;
      boolean measurementReady = false;
      char measureSensor = 0;
      // step in the measurement retrieval process
      uint16_t measurementStep = 0;
      uint16_t numberOfValues;
      uint16_t valuesReceived;
-     uint16_t waitTime;
      boolean waitForRetrieval = false;
      unsigned long sendCommandTime;
-     unsigned long startWaitTime;
      unsigned long retrievalTime;
      boolean waitForResponse = false;
      char responseBfr[256] = { 0 };
-     size_t responseBfrIdx = 0;
      char measurementBfr[256] = { 0 };
-     size_t measurementBfrIdx = 0;
      boolean responseReady = false;
      char command[8] = { 0 };
      SDI12Measurement();

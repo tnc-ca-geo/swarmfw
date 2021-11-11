@@ -261,10 +261,10 @@ void SDI12Measurement::debug() {
   size_t len;
   if (Serial) {
     len = getName(bfr);
-    Serial.println(bfr);
+    // Serial.println(bfr);
     len = getInfo(bfr);
-    Serial.println(bfr);
+    // Serial.println(bfr);
     len = getPayload(bfr);
-    Serial.println(bfr);
+    // Serial.println(bfr);
   }
 }

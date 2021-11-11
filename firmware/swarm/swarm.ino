@@ -36,10 +36,10 @@
  * October 2021
  *
  */
-// used for watchdog functionality
-// esp32 seems to have a good default watchdog functionality
-// TODO: explore further
-// #include <esp_task_wdt.h>
+/* used for watchdog functionality
+ * esp32 seems to have a good default watchdog functionality
+ * TODO: explore further
+#include <esp_task_wdt.h> */
 #include <WiFi.h>
 #include "esp_wifi.h"
 
@@ -61,7 +61,7 @@ DisplayWrapper dspl = DisplayWrapper();
 // serial interface communicationg with the SWARM tile, NOT for debugging
 SerialWrapper srl = SerialWrapper(&Serial2, 115200);
 // third arguments indicates dev mode deleting unsent messages on restart
-SwarmNode tile = SwarmNode(&dspl, &srl, true);
+SwarmNode tile = SwarmNode(&dspl, &srl, false);
 // SDI12 communication
 SDI12Measurement measurement = SDI12Measurement();
 // Configuration storage
@@ -130,9 +130,6 @@ size_t getMessage(
   for (size_t i=0; i<5; i++) {
     char channel = availableChannels[i];
     if (channel == 0) break;
-    // Serial.print("DEBUG: ");
-    // Serial.print(channel);
-    // Serial.print(", ");
     message.payloads[i].channel = channel;
     // get measurement from SDI-12 device on address channel
     len = measurement.getPayload(message.payloads[i].payload, channel);
@@ -160,7 +157,7 @@ void setup() {
   // We doon't use Wifi or Bluetooth, might save a lot of power
   esp_wifi_set_mode(WIFI_MODE_NULL);
   btStop();
-  Serial.begin(115200);
+  // Serial.begin(115200);
   // Initialize display and add some boiler plate
   dspl.begin();
   dspl.printBuffer(
@@ -232,8 +229,8 @@ void loop() {
    */
   if (tileTime > nextScheduled) {
     len = getMessage(messageBfr, availableChannels, messageCounter, tileTime);
-    Serial.write(messageBfr, len);
-    Serial.println();
+    // Serial.write(messageBfr, len);
+    // Serial.println();
     sprintf(bfr, "SENDING AT %d", tileTime);
     dspl.printBuffer(bfr);
     // send to SWARM tile

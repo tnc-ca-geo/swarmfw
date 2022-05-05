@@ -161,7 +161,7 @@ void setup() {
   // Initialize display and add some boiler plate
   dspl.begin();
   dspl.printBuffer(
-    "SWARM sensor node\nfalk.schuetzenmeister@tnc.org\nOctober 2021");
+    "SWARM sensor node\nfalk.schuetzenmeister@tnc.org\nMarch 2022");
   // we can use buttons to advance
   waitForButtonA(dspl, 3000);
   dspl.resetDisplay();

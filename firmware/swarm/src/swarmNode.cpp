@@ -53,7 +53,9 @@ void SwarmNode::begin(const unsigned long timeReportingFrequency) {
     len = getLine(bfr);
     if (len) _wrappedDisplayRef->printBuffer(bfr, len);
     delay(500);
-    if (parseLine(bfr, len, "$TILE BOOT,RUNNING", 18)) break;
+    // we adapted this compared to our version 1 since the SWARM modem
+    // issues a slightly different messages, this should work for both
+    if (parseLine(bfr, len, "BOOT,RUNNING", 12)) break;
   }
   // IF dev=true delete all unsent messages to not use up 720 monthly included
   // messages while developing and testing
@@ -62,9 +64,14 @@ void SwarmNode::begin(const unsigned long timeReportingFrequency) {
     len = tileCommand("$MT D=U", 7, bfr);
   }
   // configure the frequency at which a time report is issued
+  _wrappedDisplayRef->printBuffer("CONFIGURE");
   len = sprintf(
     timeFrequencyBfr, "$DT %i", timeReportingFrequency);
-  tileCommand(timeFrequencyBfr, len, bfr);
+  // drastically reduce the number of unsolicited messages
+  len = tileCommand("$RT 3600", 8, bfr);
+  len = tileCommand("$GN 3600", 8, bfr);
+  len = tileCommand("$GS 3600", 8, bfr);
+  _wrappedDisplayRef->printBuffer(bfr, len);
   // wait until we obtain a valid time message
   while (waitForTimeStamp() == 0);
 };

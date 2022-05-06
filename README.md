@@ -2,6 +2,8 @@
 
 Firmware connecting SDI-12 sensors to SWARM satellite platform. We are using https://swarm.space as a platform to send messages from sensors. For the SWARM tile documentation see here https://swarm.space/wp-content/uploads/2021/06/Swarm-Tile-Product-Manual.pdf.''
 
+More detailed documentation: https://thenatureconservancy462-my.sharepoint.com/personal/falk_schuetzenmeister_tnc_org/_layouts/15/guestaccess.aspx?guestaccesstoken=TmH7KIxDQDfbI0Vy9R8S%2FkfB7j3kXaVDi9jCohYKpVg%3D&docid=2_01858cbd5b9bd4ad3a21f8853b36897c2&rev=1&e=bt5SxO
+
 ## Current payload configuration/payload
 
 ### Sensors:

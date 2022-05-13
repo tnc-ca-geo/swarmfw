@@ -7,6 +7,9 @@ More detailed documentation: https://thenatureconservancy462-my.sharepoint.com/p
 ## Current payload configuration/payload
 
 ### Sensors:
+
+**2 In-situ Level Troll 300/500/700 (please stay with default configuration) https://in-situ.com/pub/media/support/documents/SDI-12_Commands_Tech_Note.pdf**
+
 3 Campbell Scientific CV50 https://www.campbellsci.com/climavue-50
 
 4 TekBox Leaf Wetness https://www.tekbox.com/product/tbslws1-sdi-12-leaf-wetness-sensor/
@@ -39,7 +42,13 @@ Example message:
    
    - concatenated sensor response from (?D1! ...)
 
-first SDI-12 sensor (CV50 at address 51 ('3'))
+**SDI-12 sensor at address 50 ('2'): In-Situ Level Troll**
+
+**1. pressure in PSI**
+  
+**2. temperature in C**
+
+SDI-12 sensor at address 51 ('3'): CV50 at address 51
 
   1. Solar flux density
   2. Precipitation
@@ -60,9 +69,9 @@ first SDI-12 sensor (CV50 at address 51 ('3'))
   17. East wind speed
   18. Wind speed max. – 10 s gust
  
-second SDI-12 sensor (TekBox at address 52 ('4'): leafwetness in %
+SDI-12 sensor at address 52 ('4'): Tekbox leafwetness in %
 
-third SDI-12 sensor (Meter Teras12 at address 53 ('5')
+SDI-12 sensor at address 53 ('5'): Meter Teras12
 
 see http://manuals.decagon.com/Integrator%20Guide/18224%20TEROS%2011-12%20Integrator%20Guide.pdf
 

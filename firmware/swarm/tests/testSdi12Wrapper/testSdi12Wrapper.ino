@@ -10,6 +10,7 @@ using namespace aunit;
 
 #include "src/sdi12Wrapper.h"
 
+
 SDI12Measurement sdi12 = SDI12Measurement();
 
 
@@ -21,11 +22,13 @@ test(parseResponse) {
   assert(sdi12.numberOfValues == 14);
 }
 
+
 test(countValues) {
   char example[16];
   memcpy(example, "+1+1+2-1+6.677", 15);
   assert(sdi12.countValues(example, 15) == 5);
 }
+
 
 /*
  * Test the behavior of the Meter sensor (extremely hardware dependent)
@@ -44,6 +47,7 @@ test(testChannel) {
   //Serial.write(bfr, len);
 }
 
+
 // this is highly hardware dependent
 test(nonBlockingSend) {
   sdi12.nonBlockingSend("5C!", 3);
@@ -53,28 +57,32 @@ test(nonBlockingSend) {
   Serial.write(sdi12.responseBfr, strlen(sdi12.responseBfr));
 }
 
-/* 
+
+/*
  *  Test non-existent sensor query bailout
  */
 test(takeMeasurementFail) {
   sdi12.takeMeasurement('k');
   while (!sdi12.measurementReady) {
-    sdi12.loop_once(); 
+    sdi12.loop_once();
   }
   Serial.print("RESULT: ");
   Serial.write(sdi12.measurementBfr);
   Serial.println();
 }
 
+
 test(takeMeasurement) {
   sdi12.takeMeasurement('3');
   while (!sdi12.measurementReady) {
-    sdi12.loop_once(); 
+    sdi12.loop_once();
   }
   Serial.print("RESULT: ");
   Serial.write(sdi12.measurementBfr, strlen(sdi12.measurementBfr));
   Serial.println();
 }
+
+
 void setup() {
   Serial.begin(115200);
   delay(500);
@@ -83,6 +91,7 @@ void setup() {
   // TestRunner::include("takeMeasurement");
   // TestRunner::include("takeMeasurementFail");
 }
+
 
 void loop() {
   aunit::TestRunner::run();

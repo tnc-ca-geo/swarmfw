@@ -112,9 +112,9 @@ void SDI12Measurement::parseResponse(char *response, size_t len) {
 // return payLoad
 size_t SDI12Measurement::getPayload(char *bfr, char addr) {
   char cmd[] = {addr, 'C', '!', 0, 0};
-  char rspns[SDI12_BUFFER_SIZE];
-  size_t len = 0;
-  len = sendSDI12(cmd, rspns);
+  char rspns[SDI12_BUFFER_SIZE] = { 0 };
+  size_t len = sendSDI12(cmd, rspns);
+  memcpy(bfr, rspns, SDI12_BUFFER_SIZE);
   parseResponse(rspns, len);
   // blocking
   while (retrievalTime > millis()) {};
@@ -131,7 +131,8 @@ size_t SDI12Measurement::getPayload(char *bfr, char addr) {
     memcpy(bfr+resIndex, rspns+1, len);
     // the response is \0 terminated but we want to concatenate those returns
     // for this reason we override the last character of the prior copy
-    resIndex += len-1;
+    resIndex += len;
+    if (resIndex > 0) { resIndex--; }
     // check whether we got all the values
     valuesReceived += countValues(rspns, len);
     if (valuesReceived >= numberOfValues) break;
@@ -198,7 +199,7 @@ void SDI12Measurement::loop_once() {
   }
 
   if (measurementStep > 2 && time > retrievalTime && !waitForRetrieval) {
-    char command[] = { measureSensor, 'D', measurementStep + 45, '!'};
+    char command[] = { measureSensor, 'D', char(measurementStep + 45), '!'};
     nonBlockingSend(command, sizeof(command));
     waitForRetrieval = true;
   }

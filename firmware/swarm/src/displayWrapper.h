@@ -32,7 +32,7 @@ class DisplayWrapperBase {
     virtual void print(char character) {};
     virtual void printBuffer(char *bfr, size_t len) {};
     virtual void printBuffer(String string) {};
-    virtual void setTextColor(uint16_t textcolor);
+    virtual void setTextColor(uint16_t textcolor) {};
     virtual void shortPrintBuffer(char *bfr, size_t len) {};
     virtual void println(String line) {};
     virtual void resetDisplay() {};

@@ -13,6 +13,24 @@ const unsigned long COMMAND_TIMEOUT = 5000; // ms
 
 
 /*
+ * very crude date evaluation that does not deal with leap years or months with
+ * less than 31 days yet.
+ */
+boolean validateTimeStruct(struct tm tme) {
+  // going back to 2019 to make SWARM examples work
+  if (tme.tm_year < 119 || tme.tm_year > 137 ) { return false; }
+  if (tme.tm_mon < 0 || tme.tm_mon > 11) { return false; }
+  if (tme.tm_mday < 1 || tme.tm_mday > 31) { return false; }
+  if (tme.tm_hour < 0 || tme.tm_hour > 23) { return false; }
+  if (tme.tm_min < 0 || tme.tm_min > 59) { return false; }
+  // 61 could theoretically happen IF leap seconds are part of the time
+  // however GPS does not do leap seconds
+  if (tme.tm_sec < 0 || tme.tm_sec > 61) { return false; }
+  return true;
+}
+
+
+/*
  *  Constructor
  *
  *  - pass wrappers for hardware dependant functionality or mocks for testing
@@ -31,8 +49,8 @@ SwarmNode::SwarmNode(
  *  Initialize SWARM tile
  *
  *  - Issue a reset to the SWARM tile immediately. Tile will not be ready to
- *  receive the command if starting up anyways. It will restart if already
- *  running. For now the simpliest way to achieve a known state.
+ *  process this command if starting up but it will restart if already
+ *  running. This is just a simply way to get to a known state.
  *
  *  NOT INCLUDED IN TESTS
  */
@@ -44,19 +62,14 @@ void SwarmNode::begin(const unsigned long timeReportingFrequency) {
   size_t len=0;
   // issue tile reset
   len = tileCommand("$RS", 3, bfr);
-  // see on the very bottom of https://github.com/astuder/SwarmTile
-  // UNDOCUMENTED, implement as a reaction to a certain send status
-  // len = tileCommand("$RS dbinit", 10, bfr);
-  // solved with FW 1.1.0
-  // wait for indication that tile is running
+  // BLOCKING: wait for indication that tile is running
   while (true) {
     len = getLine(bfr);
     if (len) _wrappedDisplayRef->printBuffer(bfr, len);
     delay(500);
-    // we adapted this compared to our version 1 since the SWARM modem
-    // issues a slightly different messages, this should work for both
-    if (parseLine(bfr, len, "BOOT,RUNNING", 12)) break;
+    if (parseLine(bfr, len, "BOOT,RUNNING", 12) > -1) break;
   }
+  // TODO: use compile flags instead of program flow for this
   // IF dev=true delete all unsent messages to not use up 720 monthly included
   // messages while developing and testing
   if (dev) {
@@ -72,7 +85,9 @@ void SwarmNode::begin(const unsigned long timeReportingFrequency) {
   len = tileCommand("$GN 3600", 8, bfr);
   len = tileCommand("$GS 3600", 8, bfr);
   _wrappedDisplayRef->printBuffer(bfr, len);
+  // TODO: this is blocking which is nasty
   // wait until we obtain a valid time message
+  // BLOCKING
   while (waitForTimeStamp() == 0);
 };
 
@@ -136,12 +151,11 @@ size_t SwarmNode::getLine(char *bfr) {
  */
 int SwarmNode::getTime(char *bfr) {
   size_t len = tileCommand("$DT @", 5, bfr);
-  // _wrappedDisplayRef->printBuffer(bfr, len);
   return len;
 }
 
 /*
- * get time stamp for sensor reading, retry if time not valid
+ * get time stamp for sensor reading
  */
 unsigned long int SwarmNode::getTimeStamp() {
   char timBfr[32];
@@ -154,6 +168,8 @@ unsigned long int SwarmNode::getTimeStamp() {
  * to sync the loop.
  * This function is blocking and returns time depending on setting of
  * reporting frequency which determines precision and power consumption
+ *
+ * BLOCKING
  */
 unsigned long int SwarmNode::waitForTimeStamp() {
   size_t bfrLen = 0;
@@ -162,15 +178,13 @@ unsigned long int SwarmNode::waitForTimeStamp() {
   unsigned long ret = 0;
   while (true) {
     bfrLen = getLine(messageBfr);
-    // output incoming messages
-    // if (bfrLen > 0) _wrappedDisplayRef->shortPrintBuffer(messageBfr, bfrLen);
-    // try to interpret as time
     ret = parseTime(messageBfr, bfrLen);
     if (ret > 0) return ret;
   }
 }
 
 /*
+ *  TODO: might be more useful as a buffer
  *  get nmeaChecksum of a command
  *  see https://swarm.space/wp-content/uploads/2021/06/Swarm-Tile-Product-Manual.pdf
  *  page 34
@@ -184,28 +198,38 @@ uint8_t SwarmNode::nmeaChecksum(const char *sz, const size_t len) {
 }
 
 /*
- * Parse a line and return whether it contains a specific string
- *
- * TODO: There is probably a native command to do that
- * TODO: return integer first position for more functionality
+ * Check weather a buffer contains a valid NMEA check sum
  */
-boolean SwarmNode::parseLine(
+boolean SwarmNode::checkNmeaChecksum(const char *bffr, const size_t len) {
+  const uint16_t pos = parseLine(bffr, len, "*", 1);
+  char sum[3] = {0};
+  memcpy(sum, bffr+pos+1, 2);
+  // see https://stackoverflow.com/questions/1070497/c-convert-hex-string-to-signed-integer
+  return (nmeaChecksum(bffr, pos) == strtol(sum, NULL, 16));
+}
+
+/*
+ * Parse a line and return index of find, returns -1 if not found
+ * TODO: There might be fancier algorithms to do that such as Boyer-Moore
+ * or even a standard function
+ */
+int16_t SwarmNode::parseLine(
   const char *line, const size_t len, const char *searchTerm,
   const size_t searchLen
 ) {
-  boolean ret = false;
+  int16_t ret = -1;
   if (searchLen <= len) {
     // Note: we need to make sure that two buffers with the same length can be
-    // found, so next loop needs to run at leat once
+    // found, so next loop needs to run at least once
     for (size_t i=0; i <= len-searchLen; i++) {
-      ret = true;
+      ret = i;
       for (size_t j=0; j < searchLen; j++) {
         if (searchTerm[j] != line[i+j]) {
-          ret = false;
+          ret = -1;
           break;
         }
       }
-      if (ret) break;
+      if (ret != -1) break;
     }
   }
   return ret;
@@ -223,12 +247,18 @@ unsigned long int SwarmNode::parseTime(
   char part[5];
   // see https://newbedev.com/shell-arduino-esp32-getlocaltime-time-h-struct-tm-code-example
   struct tm time = {0};
+  // check NMEA checksum whether response is complete
+  if (!checkNmeaChecksum(timeResponse, len)) { return 0; }
+  // check valid flag on time reading
+  if (parseLine(timeResponse, len, ",V*", 3) < 0 ) { return 0; }
   // this is a little bit lazy way to determine whether we have the
   // right message type but it will work for the next 979 years
-  if (parseLine(timeResponse, len, "$DT 2", 5)) {
+  if (parseLine(timeResponse, len, "$DT 2", 5) > -1) {
     memcpy(part, timeResponse + 4, 4);
     part[4] = '\0';
+    // time format stores years since 1900
     time.tm_year = strtol(part, NULL, 10) - 1900;
+    // check whether valid year: 2010 to 2037
     memcpy(part, timeResponse + 8, 2);
     // we have to do that only once since we copy
     // 2 bytes in every of the following steps
@@ -243,7 +273,7 @@ unsigned long int SwarmNode::parseTime(
     time.tm_min = strtol(part, NULL, 10);
     memcpy(part, timeResponse + 16, 2);
     time.tm_sec = strtol(part, NULL, 10);
-    return mktime(&time);
+    if (validateTimeStruct(time)) { return mktime(&time); };
   }
   return 0;
 }
@@ -280,6 +310,9 @@ void SwarmNode::sendMessage(const char *message, const size_t len) {
  *
  *  - returns the response to a command assuming that the first three characters
  *    of the command match the response pattern
+ *
+ *
+ * BLOCKING
  */
  size_t SwarmNode::tileCommand(
    const char *command, const size_t len, char *bfr
@@ -295,7 +328,7 @@ void SwarmNode::sendMessage(const char *message, const size_t len) {
    do {
      retLen = getLine(bfr);
    } while (
-     !parseLine(bfr, 3, commandBfr, 3)
+     parseLine(bfr, 3, commandBfr, 3) < 0
      && startMillis + COMMAND_TIMEOUT > millis()
    );
    _wrappedDisplayRef->shortPrintBuffer(bfr, retLen);

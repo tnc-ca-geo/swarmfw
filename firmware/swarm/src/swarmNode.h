@@ -21,6 +21,9 @@
 #endif
 
 
+boolean validateTimeStruct(struct tm tme);
+
+
 class SwarmNode {
 
   private:
@@ -40,10 +43,13 @@ class SwarmNode {
     int getTime(char *bfr);
     unsigned long waitForTimeStamp();
     unsigned long getTimeStamp();
+    // calculate NMEA checksum
     // from https://swarm.space/wp-content/uploads/2021/06/Swarm-Tile-Product-Manual.pdf
     // page 34
     uint8_t nmeaChecksum(const char *sz, const size_t len);
-    boolean parseLine(
+    // evaluate NMEA checksum
+    boolean checkNmeaChecksum(const char *bffr, const size_t len);
+    int16_t parseLine(
       const char *line, const size_t len, const char *searchTerm,
       const size_t searchLen);
     unsigned long parseTime(const char *timeResponse, const size_t len);

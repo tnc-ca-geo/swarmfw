@@ -30,7 +30,6 @@ class MockedSerialWrapper: public SerialWrapperBase {
       for (size_t i=len; i<256; i++) bfr[i] = 255;
     };
     char read() {
-      Serial.println("MOCK read called");
       idx++;
       if (idx-1 < sizeTestData) {
         return bfr[idx-1];
@@ -71,12 +70,12 @@ test(cleanCommand) {
 test(parseLine) {
   MockedSerialWrapper wrapper = MockedSerialWrapper();
   SwarmNode testNode = SwarmNode(&displ, &wrapper);
-  char haystack[] = "This is a haystack and we would like to find a needle in here.\n\0";
-  assertTrue(testNode.parseLine(haystack, sizeof(haystack), "needle", 5));
-  assertFalse(testNode.parseLine(haystack, sizeof(haystack), "gold", 4));
-  assertFalse(testNode.parseLine("short", 5, "to long", 7));
-  assertTrue(
-    testNode.parseLine("$TILE BOOT,RUNNING*49\n", 22, "$TILE BOOT,RUNNING", 18));
+  char haystack[] = "Haystack with a needle in here.\n\0";
+  assertEqual(testNode.parseLine(haystack, sizeof(haystack), "needle", 5), 16);
+  assertEqual(testNode.parseLine(haystack, sizeof(haystack), "gold", 4), -1);
+  assertEqual(testNode.parseLine("short", 5, "to long", 7), -1);
+  assertEqual(
+   testNode.parseLine("$TILE BOOT,RUNNING*49\n", 22, "$TILE BOOT,RUNNING", 18), 0);
 }
 
 
@@ -156,8 +155,6 @@ test(sendMessage) {
   SwarmNode testNode = SwarmNode(&displ, &wrapper);
   char bfr[32];
   testNode.sendMessage("hello", 5);
-  Serial.print("wrapper.outIdx:");
-  Serial.println(wrapper.outIdx);
   for (size_t i=0; i<wrapper.outIdx; i++) {
     assertEqual(wrapper.outBfr[i], "$TD HD=86400,68616c6c6f*4a\n");
   }
@@ -250,7 +247,82 @@ test(parseTime) {
   assertEqual(res, 0);
   res = testNode.parseTime(validTimeResponse, sizeof(validTimeResponse));
   assertEqual(res, 1554753083);
-}
+};
+
+
+test(parseValidTimeFlag) {
+  MockedSerialWrapper wrapper = MockedSerialWrapper();
+  SwarmNode testNode = SwarmNode(&displ, &wrapper);
+  char invalidTimeResponse[] = "$DT 20190408195123,N*59\n";
+  int res = testNode.parseTime(
+    invalidTimeResponse, sizeof(invalidTimeResponse));
+  assertEqual(res, 0);
+};
+
+
+test(parseTimeWithWrongNMEA) {
+  MockedSerialWrapper wrapper = MockedSerialWrapper();
+  SwarmNode testNode = SwarmNode(&displ, &wrapper);
+  char invalidTimeResponse[] = "$DT 20190408195123,N*59\n";
+  int res = testNode.parseTime(
+    invalidTimeResponse, sizeof(invalidTimeResponse));
+  assertEqual(res, 0);
+};
+
+// reproducing negative timestamp and fix
+test(formallyCorrectButFaultyTime) {
+  MockedSerialWrapper wrapper = MockedSerialWrapper();
+  SwarmNode testNode = SwarmNode(&displ, &wrapper);
+  char invalidCorrectTimeResponse[] = "$DT 20,V*48\n";
+  int res = testNode.parseTime(invalidCorrectTimeResponse, sizeof(invalidCorrectTimeResponse));
+  assertEqual(res, 0);
+  // test incorrect month
+  char incorrectYear[] = "$DT 19900101000000,V*4B\n";
+  res = testNode.parseTime(incorrectYear, sizeof(incorrectYear));
+  assertEqual(res, 0);
+};
+
+
+test(checkNmeaChecksum) {
+  MockedSerialWrapper wrapper = MockedSerialWrapper();
+  SwarmNode testNode = SwarmNode(&displ, &wrapper);
+  char validResponse[] = "$DT 20190408195123,V*41\n";
+  char inValidResponse[] = "$DT 20190408195122,N*41\n";
+  Serial.print("Should be true: "); Serial.println(testNode.checkNmeaChecksum(validResponse, sizeof(validResponse)));
+  assertTrue(testNode.checkNmeaChecksum(validResponse, sizeof(validResponse)));
+  assertFalse(testNode.checkNmeaChecksum(inValidResponse, sizeof(inValidResponse)));
+};
+
+
+test(validateTimeStruct) {
+  struct tm testTime{0};
+  testTime.tm_year = 137; // years since 1900
+  testTime.tm_mon = 11;
+  testTime.tm_mday = 31;
+  testTime.tm_hour = 23;
+  testTime.tm_min = 59;
+  testTime.tm_sec = 59;
+  assertTrue(validateTimeStruct(testTime));
+  testTime.tm_year = 10;
+  assertFalse(validateTimeStruct(testTime));
+  testTime.tm_year = 137;
+  testTime.tm_mon = 12;
+  assertFalse(validateTimeStruct(testTime));
+  testTime.tm_mon = 11;
+  testTime.tm_mday = 0;
+  assertFalse(validateTimeStruct(testTime));
+  testTime.tm_mday = 32;
+  assertFalse(validateTimeStruct(testTime));
+  testTime.tm_mday = 1;
+  testTime.tm_hour = 24;
+  assertFalse(validateTimeStruct(testTime));
+  testTime.tm_hour = 23;
+  testTime.tm_min = 61;
+  assertFalse(validateTimeStruct(testTime));
+  testTime.tm_min = 59;
+  testTime.tm_sec = 62;
+  assertFalse(validateTimeStruct(testTime));
+};
 
 
 // the following sets up the Serial for feedback and starts the test runner

@@ -1,16 +1,11 @@
 #include "newSwarmNode.h"
-
-/* -----------------------------------------------------------------------------
- *  Helper functions
- *  TODO: Namespace?
- *  ----------------------------------------------------------------------------
- */
+#include "myHelpers.h"
 
 /*
  * Check whether bfr contains valid NMEA check sum
  */
-boolean checkNmeaChecksum(const char *bfr, const size_t len) {
-  const uint16_t pos = searchBfr(bfr, len, "*", 1);
+bool checkNmeaChecksum(const char *bfr, const size_t len) {
+  const uint16_t pos = helpers::searchBfr(bfr, len, "*", 1);
   char sum[3] = {0};
   memcpy(sum, bfr+pos+1, 2);
   // see https://stackoverflow.com/questions/1070497/
@@ -69,7 +64,7 @@ uint64_t parseTime(const char *bfr, const size_t len) {
   // shell-arduino-esp32-getlocaltime-time-h-struct-tm-code-example
   struct tm time = {0};
   // check NMEA checksum whether response is complete
-  if (searchBfr(bfr, len, ",V*", 3) > -1 ) {
+  if (helpers::searchBfr(bfr, len, ",V*", 3) > -1 ) {
     // this is a little bit lazy way to determine whether we have the
     // right message type but it will work for the next 979 years
     memcpy(part, bfr + 4, 4);
@@ -97,75 +92,6 @@ uint64_t parseTime(const char *bfr, const size_t len) {
 }
 
 /*
- * Take the first part of a buffer separated by sep, update the original buffer
- * return the part len.
- * TODO: use build-in functions?
- */
-size_t popFromStack(
-  char* part, char *bfr, const size_t bfrSize, const char sep
-) {
-  int16_t pos = searchBfr(bfr, bfrSize, "\n", 1);
-  if (pos > -1) {
-    memcpy(part, bfr, pos);
-    memmove(bfr, bfr+pos+1, bfrSize-pos);
-    bfr[bfrSize-pos-1] = '\0';
-    part[pos] = '\0';
-    return pos;
-  }
-  part[0] = '\0';
-  return 0;
-};
-
-/*
- * Push a bfr on a stack. Make sure it gets inserted after the last complete
- * message on the stack. Return false if message cannot be added.
- */
-boolean pushToStack(
-  char* stack, const char* bfr, const size_t len, const size_t stackSize,
-  const char sep
-) {
-  size_t pos = strlen(stack);
-  size_t actualLen = len;
-  int16_t sepPos = -1;
-  int16_t startPos = 0;
-  // return false if new string does not fit into stackSize
-  if (pos + len > stackSize - 2) { return false; }
-  // remove trailing \n {
-  while (bfr[actualLen-1] == 10 && actualLen > 0) { actualLen--; }
-  // there seems to be no reverse equivalent to strstr at least not without
-  // using std::str class which we don't
-  for (sepPos=pos; sepPos>-1; sepPos--) {
-    if (stack[sepPos] == sep) { break; }
-  }
-  // start at position 0 if |n not found
-  if (sepPos > -1) { startPos = sepPos; };
-  // include a character for \n
-  memmove(stack+startPos+actualLen+1, stack+startPos, pos-startPos);
-  stack[startPos+actualLen] = '\n';
-  memmove(stack+sepPos+1, bfr, actualLen);
-  stack[pos+actualLen+1] = '\0';
-  return true;
-}
-
-/*
- * Search a buffer and return index of find, returns -1 if not found. Return
- * also -1 when srchLen=0
- */
-int16_t searchBfr(
-  const char *bfr, const size_t len, const char *srchTrm, const size_t srchLen
-) {
-  // do not search if srchTrm is NULL pointer
-  if (!srchLen) { return -1; }
-  // ensure that the string is really \0 terminated
-  char lin[len+1] = {0};
-  char srch[srchLen+1] = {0};
-  memcpy(lin, bfr, len);
-  memcpy(srch, srchTrm, srchLen);
-  char *res = strstr(lin, srch);
-  if (res) { return res - lin; } else { return -1; }
-}
-
-/*
  * Convert to ASCII representation of HEX values; because of special
  * characters that cannot be transmitted as double-quoted string
  * See TD section in SWARM manual
@@ -186,7 +112,7 @@ int16_t searchBfr(
 /*
  * Validate whether a line is a complete and valid response
  */
-boolean validateResponse(const char *bfr, const size_t len) {
+bool validateResponse(const char *bfr, const size_t len) {
   // check whether first character is '$'
   if (bfr[0] != '$') { return false; }
   // check whether check sum is correct
@@ -197,7 +123,7 @@ boolean validateResponse(const char *bfr, const size_t len) {
  * very crude date evaluation that does not deal with leap years or months with
  * less than 31 days yet.
  */
-boolean validateTime(struct tm tme) {
+bool validateTime(struct tm tme) {
   // going back to 2019 to make SWARM examples work
   if (119 > tme.tm_year || tme.tm_year > 137 ) { return false; }
   if (0 > tme.tm_mon || tme.tm_mon > 11) { return false; }
@@ -216,7 +142,7 @@ boolean validateTime(struct tm tme) {
  * -----------------------------------------------------------------------------
  */
 NewSwarmNode::NewSwarmNode(
-  SerialWrapperBase *wrappedSerialObject, const boolean devMode)
+  SerialWrapperBase *wrappedSerialObject, const bool devMode)
 {
   _wrappedSerialRef = wrappedSerialObject;
   dev = devMode;
@@ -243,7 +169,7 @@ void NewSwarmNode::loopOnce() {
  * a little bit crude but we cannot send messages before we obtain time
  * TODO: be a more subtle here
  */
-boolean NewSwarmNode::tileReady() {
+bool NewSwarmNode::tileReady() {
   return swarmInitialized && !commandStack[0] && (timestamp != 0);
 }
 
@@ -252,10 +178,10 @@ boolean NewSwarmNode::tileReady() {
  * commands but they must separated by '\n'. Return false when command could
  * not be accepted.
  */
-boolean NewSwarmNode::setCommandStack(const char *bfr, size_t len) {
-  boolean ready = tileReady();
+bool NewSwarmNode::setCommandStack(const char *bfr, size_t len) {
+  bool ready = tileReady();
   if (ready) {
-    ready = pushToStack(commandStack, bfr, len, STACK_SIZE);
+    ready = helpers::pushToStack(commandStack, bfr, len, STACK_SIZE);
   }
   return ready;
 }
@@ -263,7 +189,7 @@ boolean NewSwarmNode::setCommandStack(const char *bfr, size_t len) {
 /*
  * Format message and store in command stack
  */
-boolean NewSwarmNode::sendMessage(const char *bfr, size_t len) {
+bool NewSwarmNode::sendMessage(const char *bfr, size_t len) {
   char messageBfr[255] = {0};
   size_t newLen = formatMessage(bfr, len, messageBfr);
   return setCommandStack(messageBfr, newLen);
@@ -276,7 +202,7 @@ void NewSwarmNode::sendCommands() {
   char command[255] = {0};
   char expected[32] = {0};
   if (!checkCommandBlock()) {
-    int16_t pos = popFromStack(command, commandStack);
+    int16_t pos = helpers::popFromStack(command, commandStack, STACK_SIZE);
     if (pos) {
       memcpy(expected, command, 3);
       memcpy(expected+3, " OK", 3);
@@ -302,7 +228,7 @@ void NewSwarmNode::removeCommandBlock() {
 };
 
 
-boolean NewSwarmNode::checkCommandBlock() {
+bool NewSwarmNode::checkCommandBlock() {
   return commandTimeOut > esp_timer_get_time();
 };
 
@@ -334,7 +260,7 @@ void NewSwarmNode::readSerial() {
  * we don't need to pass in a display reference.
  */
 size_t NewSwarmNode::readLine(char *bfr) {
-  size_t res = popFromStack(bfr, outputStack);
+  size_t res = helpers::popFromStack(bfr, outputStack, STACK_SIZE);
   bfr[res] ='\n';
   if (res) { res++; }
   bfr[res] = 0;
@@ -362,7 +288,7 @@ void NewSwarmNode::issueTileCommand(
   // clean command, remove trailing characters, add checksum
   cleanedCommandLen = cleanCommand(bfr, command, len);
   // push cleaned command to output Stack
-  pushToStack(outputStack, bfr, cleanedCommandLen);
+  helpers::pushToStack(outputStack, bfr, cleanedCommandLen, STACK_SIZE);
   _wrappedSerialRef->write(bfr, cleanedCommandLen);
 };
 
@@ -379,21 +305,21 @@ void NewSwarmNode::checkTimeAndLocationAge() {
  */
 void NewSwarmNode::parseResponse() {
   char line[255] = {0};
-  size_t len = popFromStack(line, responseStack);
+  size_t len = helpers::popFromStack(line, responseStack, STACK_SIZE);
   if (!validateResponse(line, len)) { return; }
   // process unsolicated messages first, don't remove command block
-  if (searchBfr(line, len, "$DT 2", 5) > -1) {
+  if (helpers::searchBfr(line, len, "$DT 2", 5) > -1) {
     timestamp = parseTime(line, len);
     timestampObtained = esp_timer_get_time();
   };
   // check expected response; remove command block if match
-  if (searchBfr(line, len, expectedBfr, expectedBfrLen) > -1) {
+  if (helpers::searchBfr(line, len, expectedBfr, expectedBfrLen) > -1) {
     removeCommandBlock();
     expectedBfr[0] = 0;
     expectedBfrLen = 0;
   };
   // check whether initialized; set flag
-  if (searchBfr(line, len, "BOOT,RUNNING", 12) > -1) {
+  if (helpers::searchBfr(line, len, "BOOT,RUNNING", 12) > -1) {
     swarmInitialized = true;
   };
 };

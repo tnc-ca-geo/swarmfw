@@ -1,7 +1,7 @@
 #include "src/serialWrapper.h"
 #include "src/newSwarmNode.h"
 
-
+  
 SerialWrapper srl = SerialWrapper(&Serial2, 115200);
 // second arguments indicates dev mode deleting unsent messages on restart
 NewSwarmNode tile = NewSwarmNode(&srl, false);

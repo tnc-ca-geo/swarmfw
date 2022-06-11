@@ -2,6 +2,7 @@
 # include "SDI12Wrapper.h"
 # include <Arduino.h>
 
+// # define DATA_PIN 21
 # define DATA_PIN 21
 # define POWER_PIN -1
 

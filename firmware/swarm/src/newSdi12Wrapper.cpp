@@ -3,27 +3,35 @@
 #include "myHelpers.h"
 
 
-SDI12 mySdi12(NEW_DATA_PIN);
-
-
-sdi12Interface::sdi12Interface() {
-  mySdi12.begin();
-  delay(1000);
+Sdi12Wrapper::Sdi12Wrapper():
+  _sdi12(SDI12(NEW_DATA_PIN)) {};
+void Sdi12Wrapper::begin() { _sdi12.begin(); };
+bool Sdi12Wrapper::available() { return _sdi12.available(); };
+char Sdi12Wrapper::read() { return _sdi12.read(); };
+void Sdi12Wrapper::sendCommand(const char *cmd) {
+  return _sdi12.sendCommand(cmd);
 };
 
 
-void sdi12Interface::loopOnce() {
+Sdi12Interface::Sdi12Interface(Sdi12WrapperBase *sdiRef):
+  _sdi12(sdiRef)
+{
+  _sdi12->begin();
+};
+
+
+void Sdi12Interface::loopOnce() {
   readSdi12Buffer();
 };
 
 /*
  *  Read SDI-12 buffer character by character since SDI12 is slow.
  */
-void sdi12Interface::readSdi12Buffer() {
+void Sdi12Interface::readSdi12Buffer() {
   size_t pos=0;
   char character = 0;
-  if (mySdi12.available()) {
-    character = mySdi12.read();
+  while (_sdi12->available()) {
+    character = _sdi12->read();
     pos = strlen(responseStack);
     if (pos < NEW_SDI12_BUFFER_SIZE-2) { responseStack[pos] = character; }
     pos = strlen(outputStack);
@@ -34,16 +42,16 @@ void sdi12Interface::readSdi12Buffer() {
 /*
  *  Send a SDI-12 command
  */
-void sdi12Interface::sendSdi12(char *bfr) {
+void Sdi12Interface::sendSdi12(char *bfr) {
   helpers::pushToStack(outputStack, bfr, strlen(bfr), NEW_SDI12_BUFFER_SIZE);
-  mySdi12.sendCommand((char*) bfr);
+  _sdi12->sendCommand((char*) bfr);
 };
 
 /*
  * Read line from outputStack
  * TODO: we might not need this
  */
-size_t sdi12Interface::readLine(char *bfr) {
+size_t Sdi12Interface::readLine(char *bfr) {
   size_t ret=helpers::popFromStack(bfr, outputStack, NEW_SDI12_BUFFER_SIZE);
   if (ret) {
     bfr[ret] = '\n';
@@ -57,11 +65,16 @@ size_t sdi12Interface::readLine(char *bfr) {
 /*
  * A class holding complex workflows for measurement retrieval
  */
-newSdi12Measurement::newSdi12Measurement() {};
+newSdi12Measurement::newSdi12Measurement(Sdi12Interface *interface):
+  // this is a member initializer list, see
+  // https://stackoverflow.com/questions/31211319/
+  // no-matching-function-for-call-to-class-constructor
+  interface(interface)
+{};
 
 
 void newSdi12Measurement::loopOnce() {
-  interface.loopOnce();
+  interface->loopOnce();
   parseResponse();
 };
 
@@ -87,7 +100,7 @@ void newSdi12Measurement::parseResponse() {
   };
   // interpret returns from stack
   len = helpers::popFromStack(
-    responseBfr, interface.responseStack, NEW_SDI12_BUFFER_SIZE);
+    responseBfr, interface->responseStack, NEW_SDI12_BUFFER_SIZE);
   if (len > 0) {
     if (lastCommand[1] == 'D' && retrieving) {
       memcpy(outputBfr+outputBfrLen, responseBfr+1, len-1);
@@ -118,7 +131,7 @@ void newSdi12Measurement::processCommand(const char addr, const char *command) {
   memcpy(cmd+1, command, strlen(command));
   memcpy(cmd+strlen(cmd), "!", 1);
   memcpy(lastCommand, cmd, 6);
-  interface.sendSdi12(cmd);
+  interface->sendSdi12(cmd);
 };
 
 

@@ -1,7 +1,9 @@
 #include "src/newSdi12Wrapper.h"
 
 
-newSdi12Measurement measurement = newSdi12Measurement();
+Sdi12Wrapper wrapper = Sdi12Wrapper();
+Sdi12Interface interface = Sdi12Interface(&wrapper);
+newSdi12Measurement measurement = newSdi12Measurement(&interface);
 boolean infoFlag = false;
 boolean measurementFlag = false;
 boolean block = false;

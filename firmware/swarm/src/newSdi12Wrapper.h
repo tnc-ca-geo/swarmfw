@@ -1,38 +1,66 @@
 #include <Arduino.h>
 #include <SDI12.h>
 
+
 #define NEW_DATA_PIN 21
 #define NEW_POWER_PIN -1
 #define NEW_SDI12_BUFFER_SIZE 255
 
 
 /*
+ * Wrap the hardware interaction in a base class for mocking in tests.
+ * Only wrap what is needed.
+ */
+class Sdi12WrapperBase {
+  public:
+    virtual ~Sdi12WrapperBase() {};
+    virtual void begin();
+    virtual bool available();
+    virtual char read();
+    virtual void sendCommand(const char*);
+};
+
+class Sdi12Wrapper: public Sdi12WrapperBase {
+  private:
+    SDI12 _sdi12;
+  public:
+    Sdi12Wrapper();
+    void begin();
+    bool available();
+    char read();
+    void sendCommand(const char*);
+};
+
+/*
  * This class facilitates one round trip to the SDI 12 interface
  */
-class sdi12Interface {
+class Sdi12Interface {
   private:
     // local state variables
     uint64_t commandTimeOut = 0;
+    // reference to SDI12 class
+    Sdi12WrapperBase *_sdi12;
     // helper methods
     bool checkCommandBlock();
     void readSdi12Buffer();
   public:
+    // public vars
     char responseStack[NEW_SDI12_BUFFER_SIZE] = {0};
     char outputStack[NEW_SDI12_BUFFER_SIZE] = {0};
-    // constructor
-    sdi12Interface();
-    // the main loops
+    //constructor
+    Sdi12Interface(Sdi12WrapperBase *sdiRef);
+    // the main loop
     void loopOnce();
-    // API
+    // public API
     size_t readLine(char *bfr);
     void sendSdi12(char *bfr);
 };
 
 
-// This class holds complex workflows based on sdi12Interface
+// This class holds complex workflows based on Sdi12Interface
 class newSdi12Measurement {
   private:
-    sdi12Interface interface=sdi12Interface();
+    Sdi12Interface *interface;
     // response is ready
     bool ready = true;
     // retrieving state
@@ -56,7 +84,7 @@ class newSdi12Measurement {
     // we might not need this
     uint64_t measurementReadyTime = 0;
   public:
-    newSdi12Measurement();
+    newSdi12Measurement(Sdi12Interface *interface);
     // loop
     void loopOnce();
     // public API

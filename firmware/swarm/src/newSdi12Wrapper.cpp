@@ -17,13 +17,11 @@ void sdi12Interface::loopOnce() {
 };
 
 /*
- *  Read the SDI-12 buffer character by character since SDI12 is rather slow
+ *  Read SDI-12 buffer character by character since SDI12 is slow.
  */
 void sdi12Interface::readSdi12Buffer() {
   size_t pos=0;
   char character = 0;
-  // terminate return for the case that there is no return
-  // this is important for \0 terminated strings
   if (mySdi12.available()) {
     character = mySdi12.read();
     pos = strlen(responseStack);
@@ -34,7 +32,7 @@ void sdi12Interface::readSdi12Buffer() {
 };
 
 /*
- *  Send an SDI-12 command
+ *  Send a SDI-12 command
  */
 void sdi12Interface::sendSdi12(char *bfr) {
   helpers::pushToStack(outputStack, bfr, strlen(bfr), NEW_SDI12_BUFFER_SIZE);
@@ -42,7 +40,8 @@ void sdi12Interface::sendSdi12(char *bfr) {
 };
 
 /*
- * Read a line from the outputStack
+ * Read line from outputStack
+ * TODO: we might not need this
  */
 size_t sdi12Interface::readLine(char *bfr) {
   size_t ret=helpers::popFromStack(bfr, outputStack, NEW_SDI12_BUFFER_SIZE);
@@ -56,7 +55,7 @@ size_t sdi12Interface::readLine(char *bfr) {
 };
 
 /*
- * A class holding complex workflows
+ * A class holding complex workflows for measurement retrieval
  */
 newSdi12Measurement::newSdi12Measurement() {};
 

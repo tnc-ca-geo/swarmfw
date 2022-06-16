@@ -6,7 +6,6 @@
  */
 #ifndef _SERIAL_WRAPPER_H_
 #define _SERIAL_WRAPPER_H_
-#endif
 
  // Base class
  class SerialWrapperBase {
@@ -34,3 +33,5 @@
     void write(byte character) { _serialRef->write(character); };
     size_t write(char *bfr, size_t len) { return _serialRef->write(bfr, len); }
  };
+
+ #endif

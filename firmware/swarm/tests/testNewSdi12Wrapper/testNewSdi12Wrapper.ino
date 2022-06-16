@@ -1,12 +1,11 @@
 // this fixes a bug in Aunit.h dependencies
-#line 2 "testNewSwarmNode.ino"
+#line 2 "testNewSdi12Wrapper.ino"
 #include <AUnitVerbose.h> 
 using namespace aunit;
 // There is a problem in Arduino; the import from relative paths that
 // are not children of the sketch path is not supported.
 // I am HACKING this with a symlink to the src directory for now.
 #include "src/newSdi12Wrapper.h"
-
 
 
 

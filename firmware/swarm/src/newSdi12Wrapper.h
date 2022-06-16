@@ -1,31 +1,35 @@
 #include <Arduino.h>
+#include <SDI12.h>
 
 #define NEW_DATA_PIN 21
 #define NEW_POWER_PIN -1
 #define NEW_SDI12_BUFFER_SIZE 255
 
 
+/*
+ * This class facilitates one round trip to the SDI 12 interface
+ */
 class sdi12Interface {
   private:
+    // local state variables
+    uint64_t commandTimeOut = 0;
+    // helper methods
+    bool checkCommandBlock();
+    void readSdi12Buffer();
   public:
-    // state variables
     char responseStack[NEW_SDI12_BUFFER_SIZE] = {0};
     char outputStack[NEW_SDI12_BUFFER_SIZE] = {0};
-    uint64_t commandTimeOut = 0;
     // constructor
     sdi12Interface();
     // the main loops
     void loopOnce();
     // API
     size_t readLine(char *bfr);
-    // helper methods
-    bool checkCommandBlock();
-    void readSdi12Buffer();
     void sendSdi12(char *bfr);
 };
 
 
-// A class holding more complex workflows based on newsdi12Interface
+// This class holds complex workflows based on sdi12Interface
 class newSdi12Measurement {
   private:
     sdi12Interface interface=sdi12Interface();

@@ -1,7 +1,5 @@
 #include <Arduino.h>
-#ifndef _SERIAL_WRAPPER_H_
 #include "serialWrapper.h"
-#endif
 
 #define STACK_SIZE 512
 

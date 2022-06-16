@@ -20,6 +20,9 @@ class Sdi12WrapperBase {
     virtual void sendCommand(const char*);
 };
 
+/*
+ * Implement the actual SDI12 library
+ */
 class Sdi12Wrapper: public Sdi12WrapperBase {
   private:
     SDI12 _sdi12;
@@ -31,60 +34,39 @@ class Sdi12Wrapper: public Sdi12WrapperBase {
     void sendCommand(const char*);
 };
 
-/*
- * This class facilitates one round trip to the SDI 12 interface
- */
-class Sdi12Interface {
-  private:
-    // local state variables
-    uint64_t commandTimeOut = 0;
-    // reference to SDI12 class
-    Sdi12WrapperBase *_sdi12;
-    // helper methods
-    bool checkCommandBlock();
-    void readSdi12Buffer();
-  public:
-    // public vars
-    char responseStack[NEW_SDI12_BUFFER_SIZE] = {0};
-    char outputStack[NEW_SDI12_BUFFER_SIZE] = {0};
-    //constructor
-    Sdi12Interface(Sdi12WrapperBase *sdiRef);
-    // the main loop
-    void loopOnce();
-    // public API
-    size_t readLine(char *bfr);
-    void sendSdi12(char *bfr);
-};
-
 
 // This class holds complex workflows based on Sdi12Interface
 class newSdi12Measurement {
   private:
-    Sdi12Interface *interface;
+    // A class reference wrapping the SDI12 library
+    Sdi12WrapperBase *wrapper;
     // response is ready
     bool ready = true;
-    // retrieving state
+    // retrieving i.e. blocking state
     bool retrieving;
     // holding the response
     char responseBfr[255];
+    size_t responseBfrLen;
     // putPut
     char outputBfr[255];
     // keep track of len
     size_t outputBfrLen;
     // last command
     char lastCommand[6];
-    // internal methods
-    void parseResponse();
-    // process a command
-    void processCommand(const char adr, const char *command);
     // pages retrieved, ascii '0' = 48 to ascii '9' = 57
     int retrievalIdx = 48;
     int variableIdx = 0;
     int variableCount = 0;
     // we might not need this
     uint64_t measurementReadyTime = 0;
+    // public vars
+    char responseStack[NEW_SDI12_BUFFER_SIZE] = {0};
+    uint64_t commandTimeOut = 0;
+    // private methods
+    void parseResponse();
+    void processCommand(const char adr, const char *command);
   public:
-    newSdi12Measurement(Sdi12Interface *interface);
+    newSdi12Measurement(Sdi12WrapperBase *wrapper);
     // loop
     void loopOnce();
     // public API
@@ -96,7 +78,10 @@ class newSdi12Measurement {
     bool responseReady();
     // read response
     size_t readResponse(char *bfr);
+    // TODO: move to private
     // parse the response to C and M commands
     void parseMeasurementResponse(const char *bfr);
     void retrieveReadings(const char addr, const char idx);
+    // methods from the old Sdi12Interface class
+    void readSdi12Buffer();
 };

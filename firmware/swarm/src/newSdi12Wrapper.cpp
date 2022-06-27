@@ -4,42 +4,75 @@
 
 
 /*
- * This is a wrapper around the SDI12 library build on a base class allowing
- * for mock creation.
+ * This is a wrapper around the SDI12 library build on an abstract base class
+ * allowing for mock creation in test.
  *
  * TODO: We could also create a base class implementing all methods that are
- * not hardware dependant and make the hardware methods abstract
+ * not hardware dependant and make the hardware methods abstract. To be
+ * implemented later. Then we could run tests on a test implementation of the
+ * base class.
  */
-Sdi12Wrapper::Sdi12Wrapper(): _sdi12(SDI12(NEW_DATA_PIN)) {};
+Sdi12Wrapper::Sdi12Wrapper(int datapin): _sdi12(SDI12(datapin)) {};
 void Sdi12Wrapper::begin() { _sdi12.begin(); };
 bool Sdi12Wrapper::available() { return _sdi12.available(); };
 char Sdi12Wrapper::read() { return _sdi12.read(); };
-void Sdi12Wrapper::sendCommand(const char *cmd) {
-  return _sdi12.sendCommand(cmd);
+void Sdi12Wrapper::sendCommand(const char *bfr) {
+  return _sdi12.sendCommand(bfr);
 };
 
 /*
  * Class implementing basic interaction with SDI-12 as well as complex
  * measurement workflows
  */
-newSdi12Measurement::newSdi12Measurement(Sdi12WrapperBase *wrapper):
-  // this is a member initializer list, see
+NewSdi12Measurement::NewSdi12Measurement(Sdi12WrapperBase *wrapper):
+  // this is a member initializer list (with one item), see
   // https://stackoverflow.com/questions/31211319/
   // no-matching-function-for-call-to-class-constructor
   wrapper(wrapper)
-{ wrapper->begin(); };
+{
+  wrapper->begin();
+};
 
-
-void newSdi12Measurement::loopOnce() {
+/*
+ * The loop, please call once per main loop.
+ * - reads the SDI12 buffer
+ * - parses the response if a line is completed
+ */
+void NewSdi12Measurement::loopOnce() {
+  Serial.println("Read SDI12 buffer");
   readSdi12Buffer();
+  Serial.println("Parse response");
   parseResponse();
 };
 
 /*
- * parse command respone
+ * Getter method for finished measurement result. We currently holding on to the
+ * result until a new command is issued. This is somewhat different from the
+ * SwarmNode class but SDI-12 does not have unsolicitated messages. We might
+ * change this behavior if we move to a shared base class.
  */
-void newSdi12Measurement::parseResponse() {
+size_t NewSdi12Measurement::getResponse(char *bfr) {
+  if (ready) {
+    memcpy(bfr, outputBfr, outputBfrLen);
+    bfr[outputBfrLen] = '\0';
+    return outputBfrLen;
+  }
+  bfr[0] = 0;
+  return 0;
+};
+
+/*
+ * Getter method for private ready variable
+ */
+bool NewSdi12Measurement::getResponseReady() { return ready; };
+
+/*
+ * parse command respone,
+ * TODO: restructure into events and actions, create new smaller methods
+ */
+void NewSdi12Measurement::parseResponse() {
   size_t len = 0;
+  char bfr[255] = {0};
   // initiate the retrieval process if scheduled
   if (
     retrieving && measurementReadyTime < esp_timer_get_time() &&
@@ -51,28 +84,26 @@ void newSdi12Measurement::parseResponse() {
   };
   // maximum retrieval idx reached; abort and yield
   if (retrievalIdx > 57) {
-    retrievalIdx = 48;
     retrieving = false;
     ready = true;
   };
   // interpret returns from stack
-  len = helpers::popFromStack(
-    responseBfr, responseStack, NEW_SDI12_BUFFER_SIZE);
+  len = helpers::popFromStack(bfr, responseStack, NEW_SDI12_BUFFER_SIZE);
   if (len > 0) {
     if (lastCommand[1] == 'D' && retrieving) {
-      memcpy(outputBfr+outputBfrLen, responseBfr+1, len-1);
-      outputBfr[outputBfrLen + len-1] = 0;
-      outputBfrLen = outputBfrLen+len-1;
+      memcpy(outputBfr+outputBfrLen, bfr+1, len-1);
+      outputBfr[outputBfrLen+len-1] = 0;
+      outputBfrLen = outputBfrLen + len - 1;
       retrievalIdx++;
       retrieveReadings(lastCommand[0], retrievalIdx);
     };
     if (lastCommand[1] == 'I') {
-      memcpy(outputBfr, responseBfr, len);
+      memcpy(outputBfr, bfr, len);
       outputBfrLen = len;
       ready = true;
     };
     if (lastCommand[1] == 'C' or lastCommand[1] == 'M') {
-      parseMeasurementResponse(responseBfr);
+      parseMeasurementResponse(bfr);
       retrieving = true;
     };
   };
@@ -81,7 +112,7 @@ void newSdi12Measurement::parseResponse() {
 /*
  * assemble and send a command to the SDI-12 wrapper
  */
-void newSdi12Measurement::processCommand(const char addr, const char *command) {
+void NewSdi12Measurement::processCommand(const char addr, const char *command) {
   ready = false;
   char cmd[6] = {0};
   cmd[0] = addr;
@@ -91,8 +122,11 @@ void newSdi12Measurement::processCommand(const char addr, const char *command) {
   wrapper->sendCommand((char*) cmd);
 };
 
-
-void newSdi12Measurement::parseMeasurementResponse(const char *bfr) {
+/*
+ * Parses the response to a C! or M! measurement, set attributes that will
+ * direct the retrieval process
+ */
+void NewSdi12Measurement::parseMeasurementResponse(const char *bfr) {
   char seconds[4] = {bfr[1], bfr[2], bfr[3], 0};
   measurementReadyTime = esp_timer_get_time() + atoi(seconds) * 1000000;
   char variables[3] = {bfr[4], bfr[5], 0};
@@ -100,20 +134,28 @@ void newSdi12Measurement::parseMeasurementResponse(const char *bfr) {
 };
 
 /*
- * Issue aDx! commands to retrieve and assemble complete sensor readings
+ *  Read SDI-12 buffer
  */
-void newSdi12Measurement::retrieveReadings(const char addr, const char idx) {
-  char cmd[] = {'D', idx, '\0'};
-  processCommand(addr, cmd);
+void NewSdi12Measurement::readSdi12Buffer() {
+  // This is potentially dangerous. Since we could flood the Serial with
+  // input that does not contain \n and it would be blocking. TODO: add
+  // timeout. However, given the slowliness of SDI-12 this should not happen.
+  while (wrapper->available()) {
+    char character = wrapper->read();
+    size_t pos = strlen(responseStack);
+    // TODO: add handling if this condition is not met, like pop the oldest
+    // message
+    if (pos < NEW_SDI12_BUFFER_SIZE-2) { responseStack[pos] = character; }
+    if (character == '\n') { break; }
+  }
 };
 
 /*
  * Trigger aI! command, will delete results, and cancel ongoing retrieval
  */
-void newSdi12Measurement::getInfo(const char addr) {
+void NewSdi12Measurement::requestInfo(const char addr) {
   char cmd[] = {'I', '\0'};
-  outputBfr[0] = '\0';
-  outputBfrLen = 0;
+  reset();
   processCommand(addr, cmd);
 };
 
@@ -121,43 +163,29 @@ void newSdi12Measurement::getInfo(const char addr) {
  * trigger new measurement, will delete older results, and cancel ongoing
  * retrieval
  */
-void newSdi12Measurement::getMeasurement(const char addr, const char command) {
+void NewSdi12Measurement::requestMeasurement(
+  const char addr, const char command
+) {
   char cmd[] = {command, '\0'};
-  outputBfr[0] = '\0';
-  outputBfrLen = 0;
+  reset();
   processCommand(addr, cmd);
 };
 
 /*
- * Getter method for finished measurement result
+ * Reset and terminate all ongoing processes
  */
-size_t newSdi12Measurement::readResponse(char *bfr) {
-  if (ready) {
-    memcpy(bfr, outputBfr, outputBfrLen);
-    bfr[outputBfrLen] = '\0';
-    outputBfrLen = 0;
-    return outputBfrLen;
-  }
-  bfr[0] = 0;
-  return 0;
-};
+void NewSdi12Measurement::reset() {
+  ready = false;
+  retrieving = false;
+  retrievalIdx = 48;
+  outputBfr[0] = 0;
+  outputBfrLen = 0;
+}
 
 /*
- * Getter method for private ready variable
+ * Issue aDx! commands to retrieve and assemble complete sensor readings
  */
-bool newSdi12Measurement::responseReady() {
-  return ready;
-};
-
-/*
- *  Read SDI-12 buffer
- */
-void newSdi12Measurement::readSdi12Buffer() {
-  size_t pos=0;
-  char character = 0;
-  while (wrapper->available()) {
-    character = wrapper->read();
-    pos = strlen(responseStack);
-    if (pos < NEW_SDI12_BUFFER_SIZE-2) { responseStack[pos] = character; }
-  }
+void NewSdi12Measurement::retrieveReadings(const char addr, const char idx) {
+  char cmd[] = {'D', idx, '\0'};
+  processCommand(addr, cmd);
 };

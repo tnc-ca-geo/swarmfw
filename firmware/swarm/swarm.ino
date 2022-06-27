@@ -161,7 +161,7 @@ void setup() {
   // Initialize display and add some boiler plate
   dspl.begin();
   dspl.printBuffer(
-    "SWARM node v0.0.4\nfalk.schuetzenmeister@tnc.org\nMay 2022");
+    "SWARM node v0.0.5\nfalk.schuetzenmeister@tnc.org\nJune 2022");
   // we can use buttons to advance
   waitForButtonA(dspl, 3000);
   dspl.resetDisplay();

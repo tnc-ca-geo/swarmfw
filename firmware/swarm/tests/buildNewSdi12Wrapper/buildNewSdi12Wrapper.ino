@@ -29,7 +29,7 @@ void loop() {
     measurement.requestInfo('3');
     infoFlag = true;
     block = true;
-  }
+  };
   if (!measurementFlag && !block) {
     Serial.println("\nrequest measurement");
     measurement.requestMeasurement('3');

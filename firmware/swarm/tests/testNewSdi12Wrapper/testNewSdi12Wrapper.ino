@@ -24,13 +24,16 @@ class MockSdi12Wrapper: public Sdi12WrapperBase {
       memcpy(sdi12Bfr, bfr, len);
       sdi12Bfr[len] = '\0';
       avail = true;
+    };
      // get the last command issues
     size_t getSentCommand(char *bfr) {
-      memcpy(bfr, cmdBfr, strlen(cmdBfr);
-    }
+      size_t len = strlen(cmdBfr);
+      memcpy(bfr, cmdBfr, len);
+      bfr[len] = 0;
+      return len;
     // ---------------------------------------------------------------
     };
-    // Methods mirroring mocked class
+    // --------------- Methods of the mocked class -------------------
     void begin() {};
     bool available() { return avail; };
     char read() {
@@ -39,7 +42,13 @@ class MockSdi12Wrapper: public Sdi12WrapperBase {
       else avail = false;
       return ret;
     };
-    void sendCommand(const char *bfr) {};
+    void sendCommand(const char *bfr) {
+      Serial.print("Mocked sendCommand: "); Serial.println(bfr);
+      size_t len = strlen(bfr);
+      memcpy(cmdBfr, bfr, len);
+      cmdBfr[len] = 0;
+    };
+    // ---------------------------------------------------------------
 };
 
 
@@ -51,12 +60,13 @@ test(requestInfo_simple) {
   measurement.requestInfo('3');
   wrapper.setSdi12Bfr("3001Falk\n", 9);
   measurement.loopOnce();
+  // check command issued to SDI-12 
+  len = wrapper.getSentCommand(bfr);
+  for (size_t i=0; i<3; i++) assertEqual("3I!"[i], bfr[i]);
   len = measurement.getResponse(bfr);
-  // We are not returning \n here. But we might change that for consistency
+  // Not returning \n. We might change that for consistency.
   assertEqual(len, 8);
   for (uint8_t i=0; i<=len; i++) assertEqual("3001Falk\0"[i], bfr[i]);
-  Serial.print("Empty buffer: "); Serial.println(bfr);
-  // Make sure message is removed
 };
 
 // testing with partial Serial return
@@ -78,6 +88,35 @@ test(requestInfo_partial) {
   for (uint8_t i=0; i<=len; i++) assertEqual("3001Falk\0"[i], bfr[i]); 
 }
 
+
+test(requestMeasurement_C_simple) {
+  char bfr[128] = {0};
+  char expected[] = "+10-10+10-10+10-10+10-10+10-10+10-10+10-10+10-10+10-10+10-10";
+  uint8_t len = 0;
+  MockSdi12Wrapper wrapper = MockSdi12Wrapper();
+  NewSdi12Measurement measurement = NewSdi12Measurement(&wrapper);
+  measurement.requestMeasurement('3', 'C');
+  measurement.loopOnce();
+  len = wrapper.getSentCommand(bfr);
+  for (size_t i=0; i<3; i++) assertEqual("3C!"[i], bfr[i]);
+  measurement.loopOnce();
+  // testing with time 0 and one value here
+  wrapper.setSdi12Bfr("300001\n", 7);
+  measurement.loopOnce();
+  // still requesting all nine pages
+  for (char c=48; c<58; c++) {
+    wrapper.setSdi12Bfr("3+10-10\r\n", 9);
+    delay(300);
+    measurement.loopOnce();
+    char cmd[] = {'3', 'D', c, '!', '\0'};
+    wrapper.getSentCommand(bfr);
+    for (size_t i=0; i<4; i++) assertEqual(cmd[i], bfr[i]);
+  }
+  // it needs one more loop before results are ready
+  measurement.loopOnce();
+  measurement.getResponse(bfr);
+  for (size_t i=0; i<strlen(bfr); i++) assertEqual(expected[i], bfr[i]);
+}
 
 // the following sets up the Serial for feedback and starts the test runner
 // no need to touch

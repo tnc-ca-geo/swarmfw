@@ -39,23 +39,21 @@ NewSdi12Measurement::NewSdi12Measurement(Sdi12WrapperBase *wrapper):
  * - parses the response if a line is completed
  */
 void NewSdi12Measurement::loopOnce() {
-  Serial.println("Read SDI12 buffer");
   readSdi12Buffer();
-  Serial.println("Parse response");
   parseResponse();
 };
 
 /*
- * Getter method for finished measurement result. We currently holding on to the
- * result until a new command is issued. This is somewhat different from the
- * SwarmNode class but SDI-12 does not have unsolicitated messages. We might
- * change this behavior if we move to a shared base class.
+ * Getter method for finished measurement result. Empty buffer once read.
  */
 size_t NewSdi12Measurement::getResponse(char *bfr) {
   if (ready) {
-    memcpy(bfr, outputBfr, outputBfrLen);
+    size_t len = outputBfrLen;
+    memcpy(bfr, outputBfr, len);
     bfr[outputBfrLen] = '\0';
-    return outputBfrLen;
+    outputBfr[0] = 0;
+    outputBfrLen = 0;
+    return len;
   }
   bfr[0] = 0;
   return 0;
@@ -78,9 +76,12 @@ void NewSdi12Measurement::parseResponse() {
     retrieving && measurementReadyTime < esp_timer_get_time() &&
     retrievalIdx==48)
   {
-    retrieveReadings(lastCommand[0], retrievalIdx);
-    // give it some time, 300ms seems to be safe according to SDI spec
-    measurementReadyTime = measurementReadyTime + 300000;
+    retrieveReadings(lastCommand[0], 48);
+    // give it some time, 30ms seems to be safe according to SDI spec
+    measurementReadyTime = esp_timer_get_time() + 30000;
+    retrievalIdx++;
+    // initiate the next loop
+    return;
   };
   // maximum retrieval idx reached; abort and yield
   if (retrievalIdx > 57) {
@@ -89,13 +90,19 @@ void NewSdi12Measurement::parseResponse() {
   };
   // interpret returns from stack
   len = helpers::popFromStack(bfr, responseStack, NEW_SDI12_BUFFER_SIZE);
+  // This relays on the fact that the command receipt in SDI-12 is <CR><LF>
+  // Since the \n (<LF>) is removed, we will still parse when there is a <CR>
+  // which is particularly important for the aDn! command since it can reproduce
+  // empty responses. TODO: make sure that it will not block even if everything
+  // else fails
   if (len > 0) {
-    if (lastCommand[1] == 'D' && retrieving) {
-      memcpy(outputBfr+outputBfrLen, bfr+1, len-1);
-      outputBfr[outputBfrLen+len-1] = 0;
-      outputBfrLen = outputBfrLen + len - 1;
+    if (lastCommand[1] == 'D') {
+      memcpy(outputBfr+outputBfrLen, bfr+1, len-2);
+      outputBfrLen = outputBfrLen + len - 2;
+      outputBfr[outputBfrLen] = 0;
+      if (retrieving) retrieveReadings(lastCommand[0], retrievalIdx);
       retrievalIdx++;
-      retrieveReadings(lastCommand[0], retrievalIdx);
+      measurementReadyTime = esp_timer_get_time() + 30000;
     };
     if (lastCommand[1] == 'I') {
       memcpy(outputBfr, bfr, len);

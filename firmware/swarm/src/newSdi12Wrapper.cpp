@@ -34,35 +34,72 @@ NewSdi12Measurement::NewSdi12Measurement(Sdi12WrapperBase *wrapper):
 };
 
 /*
- * The loop, please call once per main loop.
+ * Loop, call once per main loop.
  * - reads the SDI12 buffer
  * - parses the response if a line is completed
+ * - executes scheduled tasks
  */
 void NewSdi12Measurement::loopOnce() {
+  // reset when timeOut
+  if (timeOutTime < esp_timer_get_time()) {
+    reset();
+    // indicate that measurement came to an end
+    ready = true;
+  }
+  // read incoming data
   readSdi12Buffer();
+  // parse response
   parseResponse();
+  // run scheduled, order matters here
+  runScheduled();
 };
 
 /*
- * Getter method for finished measurement result. Empty buffer once read.
+ * Getter method for finished measurement result. Empty buffer once read. We end
+ * every response with \n so that even empty responses have a length of 1
  */
 size_t NewSdi12Measurement::getResponse(char *bfr) {
   if (ready) {
     size_t len = outputBfrLen;
     memcpy(bfr, outputBfr, len);
-    bfr[outputBfrLen] = '\0';
+    memcpy(bfr+len, "\n\0", 2);
     outputBfr[0] = 0;
     outputBfrLen = 0;
-    return len;
+    ready = false;
+    return len+1;
   }
   bfr[0] = 0;
   return 0;
 };
 
 /*
- * Getter method for private ready variable
+ * Getter method for private ready variable, we need this since the response can
+ * be empty
  */
 bool NewSdi12Measurement::getResponseReady() { return ready; };
+
+/*
+ * run scheduled commands, TODO: convert to a real schedule
+ */
+void NewSdi12Measurement::runScheduled() {
+  // maximum retrieval idx reached; abort and yield
+  if (retrievalIdx > 57) {
+    retrieving = false;
+    sensorCheck = false,
+    ready = true;
+    retrievalIdx = 48;
+  };
+  if (retrieving && measurementReadyTime < esp_timer_get_time()) {
+    retrieveReadings(lastCommand[0], retrievalIdx);
+    // give it some time, 30ms seems to be safe according to SDI spec
+    retrievalIdx++;
+    retrieving = false;
+  };
+  if (sensorCheck && measurementReadyTime < esp_timer_get_time()) {
+    checkSensor(retrievalIdx);
+    retrievalIdx++;
+  };
+}
 
 /*
  * parse command respone,
@@ -71,38 +108,25 @@ bool NewSdi12Measurement::getResponseReady() { return ready; };
 void NewSdi12Measurement::parseResponse() {
   size_t len = 0;
   char bfr[255] = {0};
-  // initiate the retrieval process if scheduled
-  if (
-    retrieving && measurementReadyTime < esp_timer_get_time() &&
-    retrievalIdx==48)
-  {
-    retrieveReadings(lastCommand[0], 48);
-    // give it some time, 30ms seems to be safe according to SDI spec
-    measurementReadyTime = esp_timer_get_time() + 30000;
-    retrievalIdx++;
-    // initiate the next loop
-    return;
-  };
-  // maximum retrieval idx reached; abort and yield
-  if (retrievalIdx > 57) {
-    retrieving = false;
-    ready = true;
-  };
   // interpret returns from stack
   len = helpers::popFromStack(bfr, responseStack, NEW_SDI12_BUFFER_SIZE);
-  // This relays on the fact that the command receipt in SDI-12 is <CR><LF>
+  // This relies on the fact that the command receipt in SDI-12 is <CR><LF>
   // Since the \n (<LF>) is removed, we will still parse when there is a <CR>
   // which is particularly important for the aDn! command since it can reproduce
   // empty responses. TODO: make sure that it will not block even if everything
   // else fails
   if (len > 0) {
     if (lastCommand[1] == 'D') {
+      // removing address byte from output
       memcpy(outputBfr+outputBfrLen, bfr+1, len-2);
       outputBfrLen = outputBfrLen + len - 2;
       outputBfr[outputBfrLen] = 0;
-      if (retrieving) retrieveReadings(lastCommand[0], retrievalIdx);
-      retrievalIdx++;
-      measurementReadyTime = esp_timer_get_time() + 30000;
+      retrieving = true;
+    };
+    if (lastCommand[1] == '!') {
+      memcpy(outputBfr+outputBfrLen, bfr, len - 1);
+      outputBfrLen = outputBfrLen + len - 1;
+      outputBfr[outputBfrLen] = 0;
     };
     if (lastCommand[1] == 'I') {
       memcpy(outputBfr, bfr, len);
@@ -124,9 +148,10 @@ void NewSdi12Measurement::processCommand(const char addr, const char *command) {
   char cmd[6] = {0};
   cmd[0] = addr;
   memcpy(cmd+1, command, strlen(command));
-  memcpy(cmd+strlen(cmd), "!", 1);
+  memcpy(cmd+strlen(cmd),  "!", 1);
   memcpy(lastCommand, cmd, 6);
   wrapper->sendCommand((char*) cmd);
+  measurementReadyTime = esp_timer_get_time() + SDI12_DEFAULT_COMMAND_TIMEOUT;
 };
 
 /*
@@ -179,14 +204,24 @@ void NewSdi12Measurement::requestMeasurement(
 };
 
 /*
+ * initiate Sensor check
+ */
+void NewSdi12Measurement::requestSensors() {
+  reset();
+  sensorCheck = true;
+}
+
+/*
  * Reset and terminate all ongoing processes
  */
 void NewSdi12Measurement::reset() {
   ready = false;
   retrieving = false;
+  sensorCheck = false;
   retrievalIdx = 48;
   outputBfr[0] = 0;
   outputBfrLen = 0;
+  timeOutTime = esp_timer_get_time() + SDI12_TIMEOUT;
 }
 
 /*
@@ -196,3 +231,11 @@ void NewSdi12Measurement::retrieveReadings(const char addr, const char idx) {
   char cmd[] = {'D', idx, '\0'};
   processCommand(addr, cmd);
 };
+
+/*
+ * Issue a! command to check whether sensor is attached
+ */
+void NewSdi12Measurement::checkSensor(const char idx) {
+  char cmd[] = "";
+  processCommand(idx, cmd);
+}

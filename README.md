@@ -78,3 +78,9 @@ see http://manuals.decagon.com/Integrator%20Guide/18224%20TEROS%2011-12%20Integr
  1. calibratedCountsVWC
  2. temperature
  3. electricalConductivity
+
+**Sensor documentation**
+
+***in-situ***
+
+https://in-situ.com/pub/media/support/documents/short_stripped_tinned_cable.pdf

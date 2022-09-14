@@ -1,0 +1,22 @@
+{
+  "name": "SWARM payload decoder",
+  "description": "A payload decoder for Falk Schuetzenmeister's SWARM FW",
+  "version": "0.1.0",
+  "devDependencies": {
+    "@babel/cli": "^7.0.0",
+    "@babel/core": "^7.0.0",
+    "eslint": "^8.23.1",
+    "eslint-config-google": "^0.14.0",
+    "jest": "^29.0"
+  },
+  "scripts": {
+    "test": "jest",
+    "legacy": "babel decoder.js -d es5"
+  },
+  "eslintConfig": {
+    "ecmaVersion": 5
+  },
+  "dependencies": {
+    "@babel/preset-env": "^7.19.0"
+  }
+}
